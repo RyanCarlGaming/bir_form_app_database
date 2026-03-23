@@ -16,6 +16,33 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
+## BIR Form Application
+
+A full-stack BIR (Bureau of Internal Revenue) form management system for the Philippines.
+
+### Features
+- **Dashboard** — Overview stats: total forms, taxpayers, tax due/payable, charts by status and form type
+- **Taxpayers** — CRUD: TIN, registered name, type (individual/corporation/partnership/estate/trust), RDO code, contact info
+- **BIR Forms** — Submit and manage forms: 1700, 1701, 1701A, 1702-RT, 2550M, 2550Q, 1601C, 2316, 1604C, 0605
+- Tax computation fields: grossIncome, allowableDeductions, taxableIncome, taxDue, taxWithheld, taxPayable, etc.
+- Form statuses: draft, submitted, filed, amended
+- Currency: Philippine Peso (₱)
+
+### Frontend (artifacts/bir-app)
+- React + Vite, Tailwind CSS, shadcn/ui components
+- React Query hooks generated from OpenAPI spec
+- react-hook-form + zod validation
+- recharts for dashboard charts
+- Sidebar navigation: Dashboard, Taxpayers, BIR Forms
+
+### Backend (artifacts/api-server)
+- Express 5 routes: /api/taxpayers, /api/forms, /api/forms/stats/summary
+- Zod validation on all routes using generated schemas
+
+### Database (lib/db)
+- taxpayers table: tin, registered_name, trade_name, taxpayer_type (enum), address, zip_code, rdo_code, etc.
+- form_submissions table: taxpayer_id (FK), form_type, tax fields (numeric), status (enum), filed_date, form_data (jsonb)
+
 ## Structure
 
 ```text

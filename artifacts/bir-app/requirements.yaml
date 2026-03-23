@@ -1,0 +1,17 @@
+packages:
+  "react-hook-form": "Form state management"
+  "@hookform/resolvers": "Zod integration for forms"
+  "recharts": "Dashboard charts and visualizations"
+  "date-fns": "Date formatting and manipulation"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility function to efficiently merge Tailwind CSS classes"
+
+images:
+  - path: "artifacts/bir-app/public/images/auth-bg.png"
+    description: "Abstract geometric background in deep blue and subtle gold, resembling official government watermarks or security patterns, clean and professional"
+    aspect_ratio: "16:9"
+
+notes:
+  - The application uses react-query hooks provided by @workspace/api-client-react
+  - Forms use Zod for validation matching the OpenAPI schemas
+  - Currency is displayed in Philippine Peso (PHP)
