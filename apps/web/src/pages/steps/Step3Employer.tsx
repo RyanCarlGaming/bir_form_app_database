@@ -44,9 +44,9 @@ export default function Step3Employer({ onNext, onBack }: StepProps) {
   } = useForm<Step3Values>({
     resolver: zodResolver(step3Schema),
     defaultValues: {
-      taxType: state.taxType,
-      formType: state.formType,
-      atc: state.atc,
+      taxType:  state.taxType  || "Compensation",
+      formType: state.formType || "1902",
+      atc:      state.atc      || "QC",
       employers: [defaultEmployer],
     },
   });
@@ -89,21 +89,25 @@ export default function Step3Employer({ onNext, onBack }: StepProps) {
         <DarkSection icon={<Badge size={16} />} title="Part I — Tax Classification (items 18–20)">
           <div className="grid grid-cols-3 gap-4">
             <Field label="Tax Type" req error={errors.taxType?.message}>
-              <select {...register("taxType")} className={cn(fieldInputCls, "appearance-none cursor-pointer")}>
-                <option value="Compensation">Compensation</option>
-                <option value="Business">Business</option>
-                <option value="Mixed">Mixed</option>
-              </select>
+              <input
+                {...register("taxType")}
+                readOnly
+                className={cn(fieldInputCls, "opacity-60 cursor-not-allowed bg-surface")}
+              />
             </Field>
             <Field label="Form Type" req error={errors.formType?.message}>
-              <select {...register("formType")} className={cn(fieldInputCls, "appearance-none cursor-pointer")}>
-                <option value="1902">1902</option>
-                <option value="1901">1901</option>
-                <option value="1903">1903</option>
-              </select>
+              <input
+                {...register("formType")}
+                readOnly
+                className={cn(fieldInputCls, "font-mono opacity-60 cursor-not-allowed bg-surface")}
+              />
             </Field>
             <Field label="ATC" req error={errors.atc?.message}>
-              <input {...register("atc")} className={cn(fieldInputCls, "font-mono")} placeholder="QC" />
+              <input
+                {...register("atc")}
+                readOnly
+                className={cn(fieldInputCls, "font-mono opacity-60 cursor-not-allowed bg-surface")}
+              />
             </Field>
           </div>
           <div className="mt-4 rounded-lg border border-dashed border-border px-4 py-3">

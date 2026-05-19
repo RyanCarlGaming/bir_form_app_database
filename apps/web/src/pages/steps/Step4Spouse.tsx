@@ -1,9 +1,9 @@
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Users, CreditCard } from "lucide-react";
+import { Users, CreditCard, Plus, Trash2 } from "lucide-react";
 import FormShell from "../../components/FormShell";
 import DarkSection from "../../components/DarkSection";
-import { Field, fieldInputCls } from "../../components/Fields";
+import { Field, Checkbox, fieldInputCls } from "../../components/Fields";
 import { step4Schema, type Step4Values } from "../../lib/schemas/wizard";
 import { useWizard, type StepProps } from "../../lib/wizard";
 import { cn } from "../../lib/utils";
@@ -31,6 +31,7 @@ export default function Step4Spouse({ onNext, onBack }: StepProps) {
     handleSubmit,
     watch,
     setValue,
+    control,
     formState: { errors },
   } = useForm<Step4Values>({
     resolver: zodResolver(step4Schema),
@@ -47,6 +48,11 @@ export default function Step4Spouse({ onNext, onBack }: StepProps) {
       idEffectivity: state.idEffectivity,
       idExpiry: state.idExpiry,
     },
+  });
+
+  const { fields: depFields, append: appendDep, remove: removeDep } = useFieldArray({
+    control,
+    name: "dependents",
   });
 
   const exemptionClaimant = watch("exemptionClaimant");
@@ -174,6 +180,72 @@ export default function Step4Spouse({ onNext, onBack }: StepProps) {
               </div>
             </div>
           )}
+        </DarkSection>
+
+        {/* Dependents */}
+        <DarkSection
+          icon={<Users size={16} />}
+          title="Dependents"
+          badge={
+            depFields.length > 0 ? (
+              <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded font-medium">
+                {depFields.length}
+              </span>
+            ) : null
+          }
+        >
+          <div className="flex flex-col gap-4">
+            {depFields.length === 0 && (
+              <p className="text-sm text-muted text-center py-2">No dependents added.</p>
+            )}
+            {depFields.map((field, i) => (
+              <div key={field.id} className="rounded-lg border border-border p-4 relative">
+                <button
+                  type="button"
+                  onClick={() => removeDep(i)}
+                  className="absolute top-3 right-3 text-muted hover:text-red transition-colors"
+                  aria-label="Remove dependent"
+                >
+                  <Trash2 size={14} />
+                </button>
+                <div className="grid grid-cols-6 gap-4">
+                  <div className="col-span-3">
+                    <Field label="Full Name" req error={errors.dependents?.[i]?.fullName?.message}>
+                      <input
+                        {...register(`dependents.${i}.fullName`)}
+                        className={fieldInputCls}
+                        placeholder="Last, First, Middle"
+                      />
+                    </Field>
+                  </div>
+                  <div className="col-span-2">
+                    <Field label="Date of Birth" req error={errors.dependents?.[i]?.dateOfBirth?.message}>
+                      <input
+                        type="date"
+                        {...register(`dependents.${i}.dateOfBirth`)}
+                        className={cn(fieldInputCls, "font-mono")}
+                      />
+                    </Field>
+                  </div>
+                  <div className="col-span-1 flex items-end pb-1">
+                    <Checkbox
+                      checked={watch(`dependents.${i}.isIncapacitated`)}
+                      onChange={(v) => setValue(`dependents.${i}.isIncapacitated`, v)}
+                      label="Incapacitated"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => appendDep({ fullName: "", dateOfBirth: "", isIncapacitated: false })}
+              className="flex items-center gap-2 text-sm text-blue font-medium hover:opacity-80 transition-opacity"
+            >
+              <Plus size={14} />
+              Add Dependent
+            </button>
+          </div>
         </DarkSection>
 
         {/* Identification */}
