@@ -1,30 +1,25 @@
-# BIR Form Application
+# InfoMan — BIR Form Portal
 
-A full-stack web application for managing Philippine Bureau of Internal Revenue (BIR) tax form submissions. Tracks taxpayer records and form filings with a dashboard for financial summaries.
+A full-stack web application for managing Philippine Bureau of Internal Revenue (BIR) Form 1902 (Employee TIN Registration). Provides a digitized intake wizard, taxpayer registry, audit log, and admin dashboard for Revenue Officers.
 
 ## Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18, Vite, Tailwind CSS, Radix UI, Lucide React, TanStack Query, Wouter |
+| Frontend | React 19, Vite, Tailwind CSS v4, shadcn/ui, Lucide React, TanStack Query, Wouter, framer-motion |
 | Backend | Express 5, TypeScript, Pino |
 | Database | SQLite, Prisma |
-| Validation | Zod (auto-generated from OpenAPI spec via Orval) |
+| Validation | Zod |
 | Package manager | pnpm (workspaces) |
 
 ## Monorepo Structure
 
 ```
-artifacts/
-  api-server/       # Express REST API
-  bir-app/          # React frontend
-  mockup-sandbox/   # UI prototyping sandbox
-lib/
-  db/               # Prisma schema + DB client
-  api-spec/         # OpenAPI 3.1 YAML spec
-  api-zod/          # Auto-generated Zod validators
-  api-client-react/ # Auto-generated TanStack Query hooks
-scripts/            # Utility scripts
+apps/
+  api/        # Express 5 REST API
+  web/        # React 19 SPA
+packages/
+  db/         # Prisma schema + SQLite client
 ```
 
 ## API Endpoints
@@ -44,38 +39,72 @@ Forms can be filtered by `taxpayerId`, `formType`, and `status` query parameters
 
 ## Database Schema
 
-**`taxpayers`** — TIN, registered name, trade name, taxpayer type (`individual` | `corporation` | `partnership` | `estate` | `trust`), address, zip code, email, phone, RDO code, line of business.
+**`Location`** — Philippine municipalities lookup table (`munCode` PK, town, province). Referenced by Taxpayer and Employer (3NF).
 
-**`form_submissions`** — Links to a taxpayer; stores BIR form type (e.g. 1700, 1701, 1702, 2550M, 2550Q, 1601C), taxable year/period, financial figures (gross income, deductions, tax due, tax withheld, tax payable, penalties, total due), status (`draft` | `submitted` | `filed` | `amended`), filed date, remarks, and a freeform `form_data` JSON field.
+**`Taxpayer`** — TIN (unique), BIR registration date, PCN, taxpayer type (`local` / `resident` / `alien`), full personal info (last/first/middle name, gender, civil status, DOB, place of birth, citizenship, parents), local address (unit, building, lot, street, subdivision, barangay, town/district, city, province, zip), optional foreign address, contact details (mobile, email), tax type / form type / ATC, government ID info, RDO code.
+
+**`Spouse`** — one-to-one with Taxpayer; spouse TIN, name, employment, exemption claimant (`husband` / `wife`).
+
+**`Employer`** — many-to-one with Taxpayer; employer TIN, name, address, registering office type (`head` / `branch` / `rdo` / `ltdo`), employment type (`primary` / `concurrent` / `successive`), hire date.
+
+**`Dependent`** — many-to-one with Taxpayer; full name, DOB, incapacitation flag.
+
+**`FormSubmission`** — linked to a Taxpayer; BIR form type, taxable year/period, financial figures (gross income, deductions, tax due, tax withheld, tax payable, penalties, total due), status (`draft` → `submitted` → `filed` / `amended`), filed date, remarks, freeform `formData` JSON.
 
 ## Getting Started
 
-**Prerequisites**: Node.js 20+, pnpm, SQLite
+**Prerequisites:** Node.js 20+, pnpm
+
+### 1. Environment variables
+
+Create `apps/api/.env`:
+```env
+DATABASE_URL=file:./prisma/dev.db
+PORT=3000
+```
+
+Create `apps/web/.env`:
+```env
+PORT=5173
+API_PORT=3000
+```
+
+### 2. Install & run
 
 ```bash
 # Install dependencies
 pnpm install
 
-# Run database migrations
-npx prisma migrate dev
+# Push schema to SQLite (first run)
+cd packages/db && DATABASE_URL=file:./dev.db pnpm run db:push
 
-# Start the API server (development)
-cd artifacts/api-server && pnpm run dev
-
-# Start the frontend (development)
-cd artifacts/bir-app && pnpm run dev
+# Start API + frontend in parallel (from repo root)
+pnpm run dev
 ```
 
-The API server reads a `DATABASE_URL` environment variable for the database connection string.
+Open `http://localhost:5173`. The Vite dev server proxies `/api` requests to `localhost:3000`.
 
 ## Frontend Pages
 
 | Route | Page |
 |---|---|
-| `/` | Dashboard with filing statistics |
-| `/taxpayers` | Taxpayer list and management |
-| `/forms` | Form submission list |
-| `/forms/:id` | Form submission detail |
+| `/` | System Dashboard — KPI cards, charts, recent activity |
+| `/applications` | All Applications list |
+| `/applications/new` | New Application — 5-step BIR Form 1902 wizard |
+| `/applications/:id` | Application Detail — validation checks, issued TIN |
+| `/registry` | Taxpayer Registry |
+| `/audit-log` | Audit Log |
+| `/sign-in` | Sign In |
+
+### Wizard Steps
+
+| Step | Title | BIR Items |
+|---|---|---|
+| 1 | Taxpayer / Employee Information | Part I, items 1–14 |
+| 2 | Address & Contact | Part I, items 15–17, 22 |
+| 3 | Employer & Tax | Part IV |
+| 4 | Spouse & Identification | Part II + ID |
+| 5 | Review & Submit | — |
 
 ## Development
 
@@ -86,5 +115,3 @@ pnpm run typecheck
 # Build all packages
 pnpm run build
 ```
-
-API types and React Query hooks are generated from `lib/api-spec/openapi.yaml`. Run Orval (configured in `lib/api-spec/orval.config.ts`) after modifying the spec to regenerate `lib/api-zod` and `lib/api-client-react`.
