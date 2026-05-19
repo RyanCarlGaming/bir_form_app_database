@@ -6,7 +6,7 @@ const router: IRouter = Router();
 
 router.get("/stats/summary", async (req, res) => {
   try {
-    const [totalForms, totalTaxpayers, formsByStatusRaw, formsByTypeRaw, totals] =
+    const [totalForms, totalTaxpayers, byStatusRaw, byTypeRaw, totals, formsWithRdo] =
       await Promise.all([
         prisma.formSubmission.count(),
         prisma.taxpayer.count(),
@@ -15,20 +15,29 @@ router.get("/stats/summary", async (req, res) => {
         prisma.formSubmission.aggregate({
           _sum: { taxDue: true, taxPayable: true },
         }),
+        prisma.formSubmission.findMany({
+          select: { taxpayer: { select: { rdoCode: true } } },
+        }),
       ]);
 
-    const formsByStatus = Object.fromEntries(
-      formsByStatusRaw.map((r) => [r.status, r._count.id]),
+    const byStatus = Object.fromEntries(
+      byStatusRaw.map((r) => [r.status, r._count.id]),
     );
-    const formsByType = Object.fromEntries(
-      formsByTypeRaw.map((r) => [r.formType, r._count.id]),
+    const byType = Object.fromEntries(
+      byTypeRaw.map((r) => [r.formType, r._count.id]),
     );
+    const byRdo: Record<string, number> = {};
+    for (const { taxpayer } of formsWithRdo) {
+      const key = String(taxpayer.rdoCode);
+      byRdo[key] = (byRdo[key] ?? 0) + 1;
+    }
 
     res.json({
-      totalForms,
+      total: totalForms,
       totalTaxpayers,
-      formsByStatus,
-      formsByType,
+      byStatus,
+      byType,
+      byRdo,
       totalTaxDue: totals._sum.taxDue ?? 0,
       totalTaxPayable: totals._sum.taxPayable ?? 0,
     });
