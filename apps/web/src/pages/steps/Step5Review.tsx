@@ -38,8 +38,8 @@ function buildPayload(state: WizardState) {
       motherFullName: state.motherFullName,
       fatherFullName: state.fatherFullName,
       addrStreet: state.addrStreet,
-      addrBarangay: undefined,
-      addrTownDistrict: state.province || undefined,
+      addrBarangay: state.addrBarangay || undefined,
+      addrTownDistrict: state.addrTownDistrict || undefined,
       addrCity: state.addrCity,
       foreignAddress: state.foreignAddress || undefined,
       munCode: state.munCode || undefined,
@@ -144,6 +144,7 @@ function computeChecks(state: WizardState) {
         !!state.civilStatus &&
         !!state.dateOfBirth &&
         !!state.addrStreet &&
+        !!state.addrBarangay &&
         !!state.addrCity &&
         !!state.mobile &&
         !!state.email &&
@@ -264,11 +265,11 @@ export default function Step5Review({ onBack, clearWizard, onGoTo }: Props) {
             rows={[
               {
                 label: "Local Address",
-                value: [state.addrStreet, state.addrCity, state.province]
+                value: [state.addrStreet, state.addrBarangay, state.addrCity, state.province]
                   .filter(Boolean)
                   .join(", "),
               },
-              { label: "Mun. Code / RDO", value: `${state.munCode || "—"} / ${state.rdoCode}` },
+              { label: "ZIP / Mun. Code / RDO", value: `${state.zipCode || "—"} / ${state.munCode || "—"} / ${state.rdoCode || "—"}` },
               { label: "Foreign Address", value: state.foreignAddress },
               { label: "Mobile", value: state.mobile },
               { label: "Email", value: state.email },
