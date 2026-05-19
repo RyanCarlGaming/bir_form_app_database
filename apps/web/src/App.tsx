@@ -1,4 +1,5 @@
-import { Switch, Route, type RouteComponentProps } from "wouter";
+import { useEffect, type ComponentType } from "react";
+import { Switch, Route, useLocation, useParams } from "wouter";
 import Layout from "./components/Layout";
 import SignIn from "./pages/SignIn";
 import Dashboard from "./pages/Dashboard";
@@ -6,29 +7,55 @@ import NewApplication from "./pages/NewApplication";
 import ApplicationsList from "./pages/ApplicationsList";
 import ApplicationDetail from "./pages/ApplicationDetail";
 import Registry from "./pages/Registry";
+import NotFound from "./pages/NotFound";
 
-// Layout wrappers defined at module scope to avoid remount on re-render
-const DashboardPage        = () => <Layout section="Dashboard"><Dashboard /></Layout>;
-const NewApplicationPage   = () => <Layout section="New Application"><NewApplication /></Layout>;
-const ApplicationsListPage = () => <Layout section="Applications"><ApplicationsList /></Layout>;
-const RegistryPage         = () => <Layout section="Registry"><Registry /></Layout>;
-const ApplicationDetailPage = ({ params }: RouteComponentProps<{ id: string }>) => (
-  <Layout section="Applications"><ApplicationDetail id={params.id} /></Layout>
-);
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    if (!localStorage.getItem("authed")) navigate("/sign-in");
+  }, [navigate]);
+  if (!localStorage.getItem("authed")) return null;
+  return <>{children}</>;
+}
+
+function LayoutRoute({
+  path,
+  section,
+  component: Component,
+}: {
+  path: string;
+  section?: string;
+  component: ComponentType;
+}) {
+  return (
+    <Route path={path}>
+      <RequireAuth>
+        <Layout section={section}>
+          <Component />
+        </Layout>
+      </RequireAuth>
+    </Route>
+  );
+}
+
+function ApplicationDetailRoute() {
+  const { id } = useParams<{ id: string }>();
+  return <ApplicationDetail id={id!} />;
+}
 
 export default function App() {
   return (
     <Switch>
-      <Route path="/sign-in"           component={SignIn} />
-      <Route path="/applications/new"  component={NewApplicationPage} />
-      <Route path="/applications/:id"  component={ApplicationDetailPage} />
-      <Route path="/applications"      component={ApplicationsListPage} />
-      <Route path="/registry"          component={RegistryPage} />
-      <Route path="/"                  component={DashboardPage} />
+      <Route path="/sign-in" component={SignIn} />
+      <LayoutRoute path="/applications/new" section="Applications" component={NewApplication} />
+      <LayoutRoute path="/applications/:id" section="Applications" component={ApplicationDetailRoute} />
+      <LayoutRoute path="/applications" section="Applications" component={ApplicationsList} />
+      <LayoutRoute path="/registry" section="Registry" component={Registry} />
+      <LayoutRoute path="/" section="Dashboard" component={Dashboard} />
       <Route>
-        <div className="flex h-screen items-center justify-center text-muted text-lg">
-          404 — Page not found
-        </div>
+        <Layout>
+          <NotFound />
+        </Layout>
       </Route>
     </Switch>
   );

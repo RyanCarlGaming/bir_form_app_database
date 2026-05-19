@@ -4,7 +4,7 @@ import { useTheme } from "../lib/useTheme";
 interface TopbarProps { section?: string; }
 
 export default function Topbar({ section }: TopbarProps) {
-  const { isDark, toggle } = useTheme();
+  const { theme, toggle } = useTheme();
 
   return (
     <div className="h-14 bg-surface border-b border-border flex items-center justify-between px-6 shrink-0">
@@ -18,7 +18,7 @@ export default function Topbar({ section }: TopbarProps) {
           className="w-8 h-8 flex items-center justify-center rounded hover:bg-border text-muted transition-colors"
           aria-label="Toggle theme"
         >
-          {isDark ? <Sun size={16} /> : <Moon size={16} />}
+          {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
         </button>
         <div className="w-8 h-8 rounded-full bg-blue flex items-center justify-center text-white text-xs font-semibold ml-1">
           DZ

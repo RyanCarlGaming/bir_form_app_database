@@ -1,37 +1,28 @@
+import type { ReactNode } from "react";
 import { cn } from "../lib/utils";
 
 const labelCls = "text-xs font-semibold uppercase tracking-[0.04em] text-text-2";
-const inputCls = "h-10 px-3 rounded border border-border bg-surface text-text text-sm focus:outline-none focus:border-blue disabled:opacity-50 disabled:cursor-not-allowed w-full";
+export const fieldInputCls = "h-10 px-3 rounded border border-border bg-surface text-text text-sm focus:outline-none focus:border-blue disabled:opacity-50 disabled:cursor-not-allowed w-full";
 
 // ── Field ─────────────────────────────────────────────────────────────────────
 
 interface FieldProps {
   label: string;
-  value?: string;
-  placeholder?: string;
-  help?: string;
   req?: boolean;
-  mono?: boolean;
-  disabled?: boolean;
-  type?: string;
-  onChange?: (v: string) => void;
+  error?: string;
+  help?: string;
+  children: ReactNode;
 }
 
-export function Field({ label, value, placeholder, help, req, mono, disabled, type = "text", onChange }: FieldProps) {
+export function Field({ label, req, error, help, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-1">
       <label className={labelCls}>
         {label}{req && <span className="text-red ml-0.5">*</span>}
       </label>
-      <input
-        type={type}
-        value={value ?? ""}
-        placeholder={placeholder}
-        disabled={disabled}
-        onChange={(e) => onChange?.(e.target.value)}
-        className={cn(inputCls, mono && "font-mono")}
-      />
-      {help && <p className="text-xs text-muted">{help}</p>}
+      {children}
+      {error && <p className="text-xs text-red">{error}</p>}
+      {!error && help && <p className="text-xs text-muted">{help}</p>}
     </div>
   );
 }
@@ -57,7 +48,7 @@ export function SelectField({ label, options, value, onChange, help, req }: Sele
         <select
           value={value ?? ""}
           onChange={(e) => onChange?.(e.target.value)}
-          className={cn(inputCls, "appearance-none pr-8 cursor-pointer")}
+          className={cn(fieldInputCls, "appearance-none pr-8 cursor-pointer")}
         >
           <option value="" disabled>Select…</option>
           {options.map((o) => (
@@ -90,7 +81,7 @@ export function DateField({ label, value, onChange, req }: DateFieldProps) {
         type="date"
         value={value ?? ""}
         onChange={(e) => onChange?.(e.target.value)}
-        className={cn(inputCls, "font-mono")}
+        className={cn(fieldInputCls, "font-mono")}
       />
     </div>
   );
