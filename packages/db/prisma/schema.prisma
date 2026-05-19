@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum TaxpayerType {
+  individual
+  corporation
+  partnership
+  estate
+  trust
+}
+
+enum FormStatus {
+  draft
+  submitted
+  filed
+  amended
+}
+
+model Taxpayer {
+  id              Int              @id @default(autoincrement())
+  tin             String           @unique
+  registeredName  String
+  tradeName       String?
+  taxpayerType    TaxpayerType
+  address         String
+  zipCode         String
+  email           String?
+  phone           String?
+  rdoCode         String
+  lineOfBusiness  String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  formSubmissions FormSubmission[]
+}
+
+model FormSubmission {
+  id                   Int        @id @default(autoincrement())
+  taxpayerId           Int
+  taxpayer             Taxpayer   @relation(fields: [taxpayerId], references: [id], onDelete: Cascade)
+  formType             String
+  taxableYear          Int?
+  taxablePeriod        String?
+  taxablePeriodEnd     String?
+  grossIncome          Float?
+  allowableDeductions  Float?
+  taxableIncome        Float?
+  taxDue               Float?
+  taxWithheld          Float?
+  taxPayable           Float?
+  penaltiesAndInterest Float?
+  totalAmountDue       Float?
+  status               FormStatus @default(draft)
+  filedDate            DateTime?
+  remarks              String?
+  formData             String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+}
