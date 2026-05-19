@@ -1,57 +1,59 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
-    --radius: 0.5rem;
-  }
+/* Enable dark: utilities when .dark is on <html> */
+@custom-variant dark (&:where(.dark, .dark *));
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-  }
+@theme {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Navy sidebar — same in both modes */
+  --color-navy:       oklch(0.17 0.03 256);
+  --color-navy-light: oklch(0.22 0.03 256);
+  --color-navy-muted: oklch(0.35 0.03 256);
+
+  /* Canvas + surfaces (light) */
+  --color-canvas:  oklch(0.98 0.005 80);
+  --color-surface: oklch(1.00 0.002 80);
+
+  /* Borders (light) */
+  --color-border:        oklch(0.92 0.005 256);
+  --color-border-strong: oklch(0.86 0.008 256);
+
+  /* Status colors — same in both modes */
+  --color-blue:  oklch(0.62 0.19 264);
+  --color-green: oklch(0.72 0.19 152);
+  --color-red:   oklch(0.59 0.22 27);
+  --color-amber: oklch(0.75 0.15 70);
+
+  /* Text (light) */
+  --color-text:   oklch(0.17 0.02 256);
+  --color-text-2: oklch(0.42 0.02 256);
+  --color-muted:  oklch(0.62 0.02 256);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius:    8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/* Dark mode overrides — semantic tokens only */
+.dark {
+  --color-canvas:        oklch(0.10 0.01 256);
+  --color-surface:       oklch(0.14 0.01 256);
+  --color-border:        oklch(0.22 0.01 256);
+  --color-border-strong: oklch(0.29 0.01 256);
+  --color-text:          oklch(0.95 0.005 80);
+  --color-text-2:        oklch(0.75 0.01 256);
+  --color-muted:         oklch(0.52 0.01 256);
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--color-canvas);
+    color: var(--color-text);
+    font-family: var(--font-sans);
   }
 }
