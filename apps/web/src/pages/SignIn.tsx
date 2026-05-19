@@ -18,9 +18,23 @@ export default function SignIn() {
     <div className="flex h-screen">
       {/* Left panel */}
       <div className="w-[46%] bg-navy flex flex-col justify-between p-10 shrink-0">
-        <div>
-          <span className="text-white font-bold text-xl font-mono tracking-tight">BIR</span>
+        {/* Brand block */}
+        <div className="flex items-center gap-3">
+          <svg
+            width="24" height="24" viewBox="0 0 24 24" fill="none"
+            stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          >
+            <rect x="4" y="3" width="16" height="18" rx="2" />
+            <line x1="8" y1="8" x2="16" y2="8" />
+            <line x1="8" y1="12" x2="16" y2="12" />
+            <line x1="8" y1="16" x2="13" y2="16" />
+          </svg>
+          <div>
+            <p className="text-white font-bold text-lg leading-none">InfoMan</p>
+            <p className="text-xs leading-none mt-0.5" style={{ color: "var(--color-navy-muted)" }}>Portal Application</p>
+          </div>
         </div>
+
         <div className="flex flex-col gap-6">
           <p className="text-slate-400 text-xs uppercase tracking-widest">
             BIR Form 1902 · Employee TIN Registration
@@ -29,8 +43,7 @@ export default function SignIn() {
             A digital home<br />for Form 1902.
           </h1>
           <p className="text-slate-400 text-[15px] leading-relaxed max-w-xs">
-            Replace the paper application for employee TIN registration. Track submissions,
-            verify records, and issue TINs — all in one place.
+            Replace the paper application for employee TIN registration with a structured, normalized record — searchable, verifiable, and shareable across offices.
           </p>
           <div className="flex gap-10">
             {[

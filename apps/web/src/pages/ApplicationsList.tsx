@@ -148,12 +148,12 @@ export default function ApplicationsList() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-canvas">
-                <th className="px-6 py-3 text-left text-xs font-semibold text-muted uppercase tracking-[0.04em]">Ref</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-muted uppercase tracking-[0.04em]">Applicant</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-muted uppercase tracking-[0.04em]">Form Info</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-muted uppercase tracking-[0.04em]">Taxpayer</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-muted uppercase tracking-[0.04em]">TIN</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-muted uppercase tracking-[0.04em]">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-muted uppercase tracking-[0.04em]">RDO</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-muted uppercase tracking-[0.04em]">Submitted</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-muted uppercase tracking-[0.04em]">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-muted uppercase tracking-[0.04em]">Last Updated</th>
                 <th className="px-6 py-3" />
               </tr>
             </thead>
@@ -164,11 +164,14 @@ export default function ApplicationsList() {
                   onClick={() => navigate(`/applications/${form.id}`)}
                   className="border-b border-border last:border-0 hover:bg-canvas cursor-pointer transition-colors"
                 >
-                  <td className="px-6 py-3 font-mono text-xs text-text-2">{formatRef(form)}</td>
+                  <td className="px-6 py-3">
+                    <p className="font-semibold text-text text-sm">{form.formType ?? "1902"}</p>
+                    <p className="text-xs text-muted">Year {new Date(form.createdAt).getFullYear()}</p>
+                  </td>
                   <td className="px-6 py-3 font-medium text-text">{form.taxpayer?.fullName ?? "—"}</td>
                   <td className="px-6 py-3 font-mono text-xs text-muted">{form.taxpayer?.tin ?? "—"}</td>
-                  <td className="px-6 py-3"><StatusPill status={form.status} variant="pipeline" /></td>
                   <td className="px-6 py-3 font-mono text-xs text-muted">{form.taxpayer?.rdoCode ?? "—"}</td>
+                  <td className="px-6 py-3"><StatusPill status={form.status} variant="pipeline" /></td>
                   <td className="px-6 py-3 font-mono text-xs text-muted">{form.createdAt.slice(0, 10)}</td>
                   <td className="px-6 py-3 text-right">
                     <Link
@@ -176,13 +179,21 @@ export default function ApplicationsList() {
                       onClick={(e) => e.stopPropagation()}
                       className="text-xs text-blue hover:underline"
                     >
-                      View →
+                      Open →
                     </Link>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <div className="px-6 py-3 border-t border-border flex items-center justify-between text-xs text-muted">
+            <span>Showing {filtered.length} of {filtered.length} records</span>
+            <div className="flex items-center gap-1">
+              <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-border transition-colors">‹</button>
+              <button className="w-7 h-7 flex items-center justify-center rounded bg-navy text-white text-xs font-medium">1</button>
+              <button className="w-7 h-7 flex items-center justify-center rounded hover:bg-border transition-colors">›</button>
+            </div>
+          </div>
         </div>
       )}
     </>

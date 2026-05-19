@@ -5,7 +5,10 @@ export const step1Schema = z.object({
   birRegDate: z.string().min(1, "BIR registration date required"),
   pcn: z.string(),
   taxpayerType: z.enum(["local", "resident", "alien"]),
-  fullName: z.string().min(1, "Full name required"),
+  lastName:   z.string().min(1, "Required"),
+  firstName:  z.string().min(1, "Required"),
+  middleName: z.string(),
+  nameSuffix: z.string(),
   gender: z.enum(["male", "female"], { errorMap: () => ({ message: "Select a gender" }) }),
   civilStatus: z.enum(["single", "married", "widowed", "separated"], {
     errorMap: () => ({ message: "Select civil status" }),
@@ -20,22 +23,19 @@ export const step1Schema = z.object({
 export type Step1Values = z.infer<typeof step1Schema>;
 
 export const step2Schema = z.object({
-  addrUnit: z.string(),
-  addrBuilding: z.string(),
-  addrLot: z.string(),
-  addrStreet: z.string().min(1, "Street name required"),
-  addrSubdivision: z.string(),
-  addrBarangay: z.string().min(1, "Barangay required"),
-  addrTownDistrict: z.string(),
-  addrCity: z.string().min(1, "Municipality/City required"),
-  munCode: z.string(),
-  rdoCode: z.string().min(1, "RDO code required"),
-  zipCode: z.string().min(1, "ZIP code required"),
-  foreignAddress: z.string(),
-  landline: z.string(),
-  fax: z.string(),
-  mobile: z.string().min(1, "Mobile number required"),
-  email: z.string().email("Valid email required"),
+  addrStreet:       z.string().min(1, "Required"),
+  addrCity:         z.string().min(1, "Required"),
+  province:         z.string().min(1, "Required"),
+  munCode:          z.string(),
+  zipCode:          z.string().min(1, "ZIP code required"),
+  rdoCode:          z.string().min(1, "RDO code required"),
+  foreignAddress:   z.string(),
+  foreignCountry:    z.string(),
+  foreignPostalCode: z.string(),
+  mobile:           z.string().min(1, "Mobile number required"),
+  email:            z.string().email("Valid email required"),
+  landline:         z.string(),
+  fax:              z.string(),
 });
 export type Step2Values = z.infer<typeof step2Schema>;
 

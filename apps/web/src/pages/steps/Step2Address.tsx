@@ -18,18 +18,15 @@ export default function Step2Address({ onNext, onBack }: StepProps) {
   } = useForm<Step2Values>({
     resolver: zodResolver(step2Schema),
     defaultValues: {
-      addrUnit: state.addrUnit,
-      addrBuilding: state.addrBuilding,
-      addrLot: state.addrLot,
       addrStreet: state.addrStreet,
-      addrSubdivision: state.addrSubdivision,
-      addrBarangay: state.addrBarangay,
-      addrTownDistrict: state.addrTownDistrict,
       addrCity: state.addrCity,
+      province: state.province,
       munCode: state.munCode,
-      rdoCode: state.rdoCode,
       zipCode: state.zipCode,
+      rdoCode: state.rdoCode,
       foreignAddress: state.foreignAddress,
+      foreignCountry: state.foreignCountry,
+      foreignPostalCode: state.foreignPostalCode,
       landline: state.landline,
       fax: state.fax,
       mobile: state.mobile,
@@ -71,69 +68,74 @@ export default function Step2Address({ onNext, onBack }: StepProps) {
           icon={<MapPin size={16} />}
           title="Part I — Address (item 15) & Contact (item 22)"
         >
-          <div className="flex flex-col gap-5">
-            {/* Local address */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <p className="text-xs font-semibold text-text-2 uppercase tracking-[0.04em]">
-                  15. Local Residence Address
-                </p>
-                <span className="text-xs bg-red/10 text-red px-2 py-0.5 rounded font-medium">Required</span>
-              </div>
-              <div className="grid grid-cols-6 gap-x-4 gap-y-4">
-                <div className="col-span-2">
-                  <Field label="Unit / Floor" error={errors.addrUnit?.message}>
-                    <input {...register("addrUnit")} className={fieldInputCls} placeholder="Unit 4B" />
-                  </Field>
+          <div className="flex flex-col gap-6">
+            {/* Local / Foreign side-by-side */}
+            <div className="grid grid-cols-2 gap-6">
+              {/* Local address */}
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-semibold text-text-2 uppercase tracking-[0.04em]">
+                    15. Local Residence Address
+                  </p>
+                  <span className="text-xs bg-red/10 text-red px-2 py-0.5 rounded font-medium">Required</span>
                 </div>
-                <div className="col-span-2">
-                  <Field label="Building Name" error={errors.addrBuilding?.message}>
-                    <input {...register("addrBuilding")} className={fieldInputCls} placeholder="Sunrise Bldg" />
-                  </Field>
-                </div>
-                <div className="col-span-2">
-                  <Field label="Lot / Block / Phase" error={errors.addrLot?.message}>
-                    <input {...register("addrLot")} className={fieldInputCls} placeholder="Lot 12 Block 3" />
-                  </Field>
-                </div>
-                <div className="col-span-3">
-                  <Field label="Street Name" req error={errors.addrStreet?.message}>
-                    <input {...register("addrStreet")} className={fieldInputCls} placeholder="Rizal Avenue" />
-                  </Field>
-                </div>
-                <div className="col-span-3">
-                  <Field label="Subdivision / Zone" error={errors.addrSubdivision?.message}>
-                    <input {...register("addrSubdivision")} className={fieldInputCls} placeholder="Loyola Grand Villas" />
-                  </Field>
-                </div>
-                <div className="col-span-2">
-                  <Field label="Barangay" req error={errors.addrBarangay?.message}>
-                    <input {...register("addrBarangay")} className={fieldInputCls} placeholder="Barangay 123" />
-                  </Field>
-                </div>
-                <div className="col-span-2">
-                  <Field label="Town / District" error={errors.addrTownDistrict?.message}>
-                    <input {...register("addrTownDistrict")} className={fieldInputCls} placeholder="District V" />
-                  </Field>
-                </div>
-                <div className="col-span-2">
-                  <Field label="Municipality / City" req error={errors.addrCity?.message}>
+                <Field label="House / Lot / Unit, Street" req error={errors.addrStreet?.message}>
+                  <input
+                    {...register("addrStreet")}
+                    className={fieldInputCls}
+                    placeholder="123 Rizal Ave, Unit 4B"
+                  />
+                </Field>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Town / Municipality" req error={errors.addrCity?.message}>
                     <input {...register("addrCity")} className={fieldInputCls} placeholder="Quezon City" />
                   </Field>
-                </div>
-                <div className="col-span-2">
-                  <Field label="Municipality Code" error={errors.munCode?.message}>
-                    <input {...register("munCode")} className={cn(fieldInputCls, "font-mono")} placeholder="137601" />
+                  <Field label="Province" req error={errors.province?.message}>
+                    <input {...register("province")} className={fieldInputCls} placeholder="Metro Manila" />
                   </Field>
                 </div>
-                <div className="col-span-2">
-                  <Field label="RDO Code" req error={errors.rdoCode?.message}>
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="col-span-2">
+                    <Field label="Mun. Code" error={errors.munCode?.message} help="Auto-filled from Location Table">
+                      <input
+                        {...register("munCode")}
+                        className={cn(fieldInputCls, "font-mono bg-canvas")}
+                        placeholder="137601"
+                        readOnly
+                        tabIndex={-1}
+                      />
+                    </Field>
+                  </div>
+                  <Field label="ZIP" req error={errors.zipCode?.message}>
+                    <input {...register("zipCode")} className={cn(fieldInputCls, "font-mono")} placeholder="1100" />
+                  </Field>
+                  <Field label="RDO" req error={errors.rdoCode?.message}>
                     <input {...register("rdoCode")} className={cn(fieldInputCls, "font-mono")} placeholder="044" />
                   </Field>
                 </div>
-                <div className="col-span-2">
-                  <Field label="ZIP Code" req error={errors.zipCode?.message}>
-                    <input {...register("zipCode")} className={cn(fieldInputCls, "font-mono")} placeholder="1100" />
+              </div>
+
+              {/* Foreign address */}
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-semibold text-text-2 uppercase tracking-[0.04em]">
+                    16. Foreign Address
+                  </p>
+                  <span className="text-xs bg-border text-muted px-2 py-0.5 rounded font-medium">Optional</span>
+                </div>
+                <Field label="Full foreign address" error={errors.foreignAddress?.message}>
+                  <input
+                    {...register("foreignAddress")}
+                    className={fieldInputCls}
+                    placeholder="123 Main St, New York, NY 10001, USA"
+                  />
+                </Field>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Country" error={errors.foreignCountry?.message}>
+                    <input {...register("foreignCountry")} className={fieldInputCls} placeholder="United States" />
+                  </Field>
+                  <Field label="Postal code" error={errors.foreignPostalCode?.message}>
+                    <input {...register("foreignPostalCode")} className={cn(fieldInputCls, "font-mono")} placeholder="10001" />
                   </Field>
                 </div>
               </div>
@@ -141,50 +143,26 @@ export default function Step2Address({ onNext, onBack }: StepProps) {
 
             <div className="border-t border-border" />
 
-            {/* Foreign address */}
+            {/* Contact row */}
             <div>
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-4">
                 <p className="text-xs font-semibold text-text-2 uppercase tracking-[0.04em]">
-                  16. Foreign Address
+                  22. Contact Details
                 </p>
-                <span className="text-xs bg-border text-muted px-2 py-0.5 rounded font-medium">Optional</span>
-              </div>
-              <Field label="Foreign Address" error={errors.foreignAddress?.message}>
-                <input
-                  {...register("foreignAddress")}
-                  className={fieldInputCls}
-                  placeholder="123 Main St, New York, NY 10001, USA"
-                />
-              </Field>
-              <div className="mt-3 rounded-lg border border-dashed border-border px-4 py-3">
-                <p className="text-xs text-muted">
-                  Foreign-address details follow 2NF separation in our schema.
-                </p>
-              </div>
-            </div>
-
-            <div className="border-t border-border" />
-
-            {/* Contact */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <p className="text-xs font-semibold text-text-2 uppercase tracking-[0.04em]">
-                  22. Preferred Contact
-                </p>
-                <span className="text-xs bg-red/10 text-red px-2 py-0.5 rounded font-medium">Email required</span>
+                <span className="text-xs bg-red/10 text-red px-2 py-0.5 rounded font-medium">Mobile + Email required</span>
               </div>
               <div className="grid grid-cols-4 gap-4">
-                <Field label="Landline" error={errors.landline?.message}>
-                  <input {...register("landline")} className={cn(fieldInputCls, "font-mono")} placeholder="02-8123-4567" />
-                </Field>
-                <Field label="Fax" error={errors.fax?.message}>
-                  <input {...register("fax")} className={cn(fieldInputCls, "font-mono")} placeholder="02-8123-4568" />
-                </Field>
                 <Field label="Mobile" req error={errors.mobile?.message}>
                   <input {...register("mobile")} className={cn(fieldInputCls, "font-mono")} placeholder="09171234567" />
                 </Field>
                 <Field label="Email" req error={errors.email?.message}>
                   <input type="email" {...register("email")} className={fieldInputCls} placeholder="j.delacruz@email.com" />
+                </Field>
+                <Field label="Landline" error={errors.landline?.message}>
+                  <input {...register("landline")} className={cn(fieldInputCls, "font-mono")} placeholder="02-8123-4567" />
+                </Field>
+                <Field label="Fax" error={errors.fax?.message}>
+                  <input {...register("fax")} className={cn(fieldInputCls, "font-mono")} placeholder="02-8123-4568" />
                 </Field>
               </div>
             </div>

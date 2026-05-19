@@ -86,6 +86,20 @@ function ValidationChecks({ form }: { form: FormSubmission }) {
     },
   ];
 
+  const allPass = checks.every((c) => c.pass);
+
+  if (allPass) {
+    return (
+      <div className="rounded-xl p-5" style={{ background: "#EFF6FF", border: "1px solid #BFDBFE" }}>
+        <div className="flex items-center gap-2 mb-2">
+          <CheckCircle size={16} className="text-blue-600 shrink-0" style={{ color: "#2563EB" }} />
+          <p className="text-xs font-semibold text-blue-700" style={{ color: "#1D4ED8" }}>Validation Status</p>
+        </div>
+        <p className="text-xs" style={{ color: "#1E40AF" }}>All checks passed. This application is ready for filing.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl border border-border bg-surface p-5">
       <p className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2 mb-4">Validation</p>

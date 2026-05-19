@@ -1,18 +1,17 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, FilePlus, FolderOpen, Users, FileText } from "lucide-react";
+import { LayoutDashboard, FolderOpen, Users, ClipboardList, Settings, type LucideIcon } from "lucide-react";
 import { cn } from "../lib/utils";
 
-const navItems = [
-  { href: "/",                label: "Dashboard",       icon: LayoutDashboard },
-  { href: "/applications/new", label: "New Application", icon: FilePlus },
-  { href: "/applications",    label: "Applications",    icon: FolderOpen },
-  { href: "/registry",        label: "Registry",        icon: Users },
+const navItems: Array<{ href: string; label: string; icon: LucideIcon }> = [
+  { href: "/",             label: "Dashboard",         icon: LayoutDashboard },
+  { href: "/applications", label: "Applications",      icon: FolderOpen },
+  { href: "/registry",     label: "Taxpayer Registry", icon: Users },
+  { href: "/audit-log",    label: "Audit Log",         icon: ClipboardList },
 ];
 
 function isActive(href: string, location: string) {
   if (href === "/") return location === "/";
-  if (href === "/applications/new") return location.startsWith("/applications/new");
-  if (href === "/applications") return location.startsWith("/applications") && !location.startsWith("/applications/new");
+  if (href === "/applications") return location.startsWith("/applications");
   return location.startsWith(href);
 }
 
@@ -20,45 +19,77 @@ export default function Sidebar() {
   const [location] = useLocation();
 
   return (
-    <div className="flex flex-col w-56 h-screen bg-navy shrink-0">
-      {/* Logo */}
-      <div className="px-5 py-6">
-        <div className="flex items-center gap-3 mb-1">
-          <FileText size={20} className="text-white shrink-0" />
-          <span className="text-white font-bold text-lg leading-none">InfoMan</span>
+    <div
+      className="flex flex-col h-screen shrink-0"
+      style={{ width: 248, background: "#0B1220", borderRight: "1px solid #000", padding: "18px 14px" }}
+    >
+      {/* Brand */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 8px 22px" }}>
+        <div style={{
+          width: 42, height: 42, background: "#fff", borderRadius: 10,
+          display: "grid", placeItems: "center", color: "#0B1220", flexShrink: 0,
+        }}>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="3" width="16" height="18" rx="2"/>
+            <line x1="8" y1="8" x2="16" y2="8"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+            <line x1="8" y1="16" x2="13" y2="16"/>
+          </svg>
         </div>
-        <span className="text-xs ml-[35px]" style={{ color: "var(--color-navy-muted)" }}>
-          Portal Application
-        </span>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em", color: "#fff", lineHeight: 1.1 }}>InfoMan</div>
+          <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 2 }}>Portal Application</div>
+        </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 space-y-0.5">
-        {navItems.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors",
-              isActive(href, location)
-                ? "bg-white/10 text-white"
-                : "text-slate-400 hover:text-white hover:bg-white/5",
-            )}
-          >
-            <Icon size={16} />
-            {label}
-          </Link>
-        ))}
+      <nav style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 0", flex: 1 }}>
+        {navItems.map(({ href, label, icon: Icon }) => {
+          const active = isActive(href, location);
+          return (
+            <Link
+              key={href}
+              href={href}
+              style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "11px 12px",
+                color: "#fff",
+                fontSize: 14, fontWeight: 500,
+                borderRadius: 8,
+                textDecoration: "none",
+                opacity: active ? 1 : 0.78,
+                background: active ? "#1E293B" : "transparent",
+                transition: "opacity .15s ease, background .15s ease",
+              }}
+            >
+              <span style={{ width: 18, height: 18, display: "inline-grid", placeItems: "center", flexShrink: 0 }}>
+                <Icon size={18} />
+              </span>
+              {label}
+            </Link>
+          );
+        })}
       </nav>
 
       {/* Footer */}
-      <div className="px-4 py-4 border-t border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-white text-xs font-semibold shrink-0">
-            DZ
-          </div>
-          <span className="text-slate-400 text-xs truncate">davezachary.macarayo@gmail.com</span>
+      <div style={{
+        marginTop: "auto", padding: "14px 8px 4px",
+        borderTop: "1px solid #1E293B",
+        display: "flex", alignItems: "center", gap: 10,
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: "50%",
+          background: "#334155", color: "#fff",
+          fontWeight: 600, fontSize: 12,
+          display: "grid", placeItems: "center", flexShrink: 0,
+        }}>
+          DZ
         </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: "#fff" }}>Dave Zachary</div>
+          <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 1 }}>Revenue Officer</div>
+        </div>
+        <Settings size={18} style={{ color: "#94A3B8", opacity: 0.7, flexShrink: 0 }} />
       </div>
     </div>
   );

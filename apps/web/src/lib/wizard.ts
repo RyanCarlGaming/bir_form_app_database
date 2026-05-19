@@ -24,6 +24,10 @@ export interface WizardState {
   pcn: string;
   taxpayerType: "local" | "resident" | "alien";
   fullName: string;
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  nameSuffix: string;
   gender: "male" | "female" | "";
   civilStatus: "single" | "married" | "widowed" | "separated" | "";
   dateOfBirth: string;
@@ -41,7 +45,10 @@ export interface WizardState {
   addrBarangay: string;
   addrTownDistrict: string;
   addrCity: string;
+  province: string;
   foreignAddress: string;
+  foreignCountry: string;
+  foreignPostalCode: string;
   munCode: string;
   landline: string;
   fax: string;
@@ -70,12 +77,14 @@ export interface WizardState {
 
 export const WIZARD_DEFAULT: WizardState = {
   tin: "", birRegDate: "", pcn: "", taxpayerType: "local",
-  fullName: "", gender: "", civilStatus: "",
+  fullName: "", lastName: "", firstName: "", middleName: "", nameSuffix: "",
+  gender: "", civilStatus: "",
   dateOfBirth: "", placeOfBirth: "", citizenship: "", otherCitizenship: "",
   motherFullName: "", fatherFullName: "",
   addrUnit: "", addrBuilding: "", addrLot: "", addrStreet: "",
   addrSubdivision: "", addrBarangay: "", addrTownDistrict: "", addrCity: "",
-  foreignAddress: "", munCode: "",
+  province: "", foreignAddress: "", foreignCountry: "", foreignPostalCode: "",
+  munCode: "",
   landline: "", fax: "", mobile: "", email: "",
   employers: [],
   taxType: "Compensation", formType: "1902", atc: "QC",

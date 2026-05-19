@@ -12,8 +12,8 @@ export default function Layout({ children, section }: LayoutProps) {
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-auto bg-canvas">
-        <Topbar section={section} />
-        <main className="flex-1 p-6">{children}</main>
+        <Topbar />
+        <main className="flex-1 overflow-auto" style={{ padding: "36px 40px" }}>{children}</main>
       </div>
     </div>
   );

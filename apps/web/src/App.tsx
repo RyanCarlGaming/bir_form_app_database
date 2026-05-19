@@ -7,6 +7,7 @@ import NewApplication from "./pages/NewApplication";
 import ApplicationsList from "./pages/ApplicationsList";
 import ApplicationDetail from "./pages/ApplicationDetail";
 import Registry from "./pages/Registry";
+import AuditLog from "./pages/AuditLog";
 import NotFound from "./pages/NotFound";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -51,6 +52,7 @@ export default function App() {
       <LayoutRoute path="/applications/:id" section="Applications" component={ApplicationDetailRoute} />
       <LayoutRoute path="/applications" section="Applications" component={ApplicationsList} />
       <LayoutRoute path="/registry" section="Registry" component={Registry} />
+      <LayoutRoute path="/audit-log" section="Audit Log" component={AuditLog} />
       <LayoutRoute path="/" section="Dashboard" component={Dashboard} />
       <Route>
         <Layout>

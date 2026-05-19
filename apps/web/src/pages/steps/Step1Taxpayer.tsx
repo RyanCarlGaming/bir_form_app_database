@@ -37,7 +37,10 @@ export default function Step1Taxpayer({ onNext }: StepProps) {
       birRegDate: state.birRegDate,
       pcn: state.pcn,
       taxpayerType: state.taxpayerType,
-      fullName: state.fullName,
+      lastName: state.lastName,
+      firstName: state.firstName,
+      middleName: state.middleName,
+      nameSuffix: state.nameSuffix,
       gender: (state.gender as "male" | "female") || undefined,
       civilStatus: (state.civilStatus as Step1Values["civilStatus"]) || undefined,
       dateOfBirth: state.dateOfBirth,
@@ -121,14 +124,26 @@ export default function Step1Taxpayer({ onNext }: StepProps) {
             </div>
           </div>
 
-          {/* Full Name */}
-          <div className="col-span-6">
-            <Field label="Full Name" req error={errors.fullName?.message} help="Last Name, First Name Middle Initial">
-              <input
-                {...register("fullName")}
-                className={fieldInputCls}
-                placeholder="DELA CRUZ, JUAN SANTOS"
-              />
+          {/* Name fields */}
+          <div className="col-span-6 border-t border-border" />
+          <div className="col-span-2">
+            <Field label="Last Name" req error={errors.lastName?.message}>
+              <input {...register("lastName")} className={fieldInputCls} placeholder="DELA CRUZ" />
+            </Field>
+          </div>
+          <div className="col-span-2">
+            <Field label="First Name" req error={errors.firstName?.message}>
+              <input {...register("firstName")} className={fieldInputCls} placeholder="JUAN" />
+            </Field>
+          </div>
+          <div className="col-span-2">
+            <Field label="Middle Name" error={errors.middleName?.message}>
+              <input {...register("middleName")} className={fieldInputCls} placeholder="SANTOS" />
+            </Field>
+          </div>
+          <div className="col-span-1">
+            <Field label="Suffix" error={errors.nameSuffix?.message}>
+              <input {...register("nameSuffix")} className={fieldInputCls} placeholder="Jr." />
             </Field>
           </div>
 
@@ -209,8 +224,9 @@ export default function Step1Taxpayer({ onNext }: StepProps) {
           </div>
         </div>
 
-        <div className="mt-5 rounded-lg bg-blue/5 border border-blue/20 px-4 py-3">
-          <p className="text-xs text-blue">
+        <div className="mt-5 rounded-lg px-4 py-3" style={{ background: "#EFF6FF", border: "1px solid #BFDBFE" }}>
+          <p className="text-xs" style={{ color: "#1E40AF" }}>
+            Parents are recorded for verification only and are not transmitted to the BIR TIN database.
             Items 1, 3, 4 and 17 are filled by the BIR receiving office.
           </p>
         </div>

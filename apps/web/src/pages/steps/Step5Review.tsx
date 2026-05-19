@@ -27,7 +27,8 @@ function buildPayload(state: WizardState) {
       birRegDate: toIso(state.birRegDate),
       pcn: state.pcn,
       taxpayerType: state.taxpayerType,
-      fullName: state.fullName,
+      fullName: [state.lastName, state.firstName, state.middleName]
+        .filter(Boolean).join(", ").trim() || state.fullName,
       gender: state.gender as "male" | "female",
       civilStatus: state.civilStatus as "single" | "married" | "widowed" | "separated",
       dateOfBirth: toIso(state.dateOfBirth),
@@ -36,13 +37,9 @@ function buildPayload(state: WizardState) {
       otherCitizenship: state.otherCitizenship || undefined,
       motherFullName: state.motherFullName,
       fatherFullName: state.fatherFullName,
-      addrUnit: state.addrUnit || undefined,
-      addrBuilding: state.addrBuilding || undefined,
-      addrLot: state.addrLot || undefined,
       addrStreet: state.addrStreet,
-      addrSubdivision: state.addrSubdivision || undefined,
-      addrBarangay: state.addrBarangay,
-      addrTownDistrict: state.addrTownDistrict || undefined,
+      addrBarangay: undefined,
+      addrTownDistrict: state.province || undefined,
       addrCity: state.addrCity,
       foreignAddress: state.foreignAddress || undefined,
       munCode: state.munCode || undefined,
@@ -141,12 +138,12 @@ function computeChecks(state: WizardState) {
       label: "All required fields filled",
       pass:
         !!state.tin &&
-        !!state.fullName &&
+        !!state.lastName &&
+        !!state.firstName &&
         !!state.gender &&
         !!state.civilStatus &&
         !!state.dateOfBirth &&
         !!state.addrStreet &&
-        !!state.addrBarangay &&
         !!state.addrCity &&
         !!state.mobile &&
         !!state.email &&
@@ -250,7 +247,9 @@ export default function Step5Review({ onBack, clearWizard, onGoTo }: Props) {
             onEdit={() => onGoTo?.(1)}
             rows={[
               { label: "Type", value: state.taxpayerType },
-              { label: "Full Name", value: state.fullName },
+              { label: "Last Name", value: state.lastName },
+              { label: "First Name", value: state.firstName },
+              { label: "Middle Name", value: state.middleName || "—" },
               { label: "Gender / Civil Status", value: `${state.gender} / ${state.civilStatus}` },
               { label: "Date of Birth", value: state.dateOfBirth },
               { label: "Place of Birth", value: state.placeOfBirth },
@@ -265,7 +264,7 @@ export default function Step5Review({ onBack, clearWizard, onGoTo }: Props) {
             rows={[
               {
                 label: "Local Address",
-                value: [state.addrStreet, state.addrBarangay, state.addrCity]
+                value: [state.addrStreet, state.addrCity, state.province]
                   .filter(Boolean)
                   .join(", "),
               },

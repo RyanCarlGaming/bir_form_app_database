@@ -187,65 +187,74 @@ export default function Step4Spouse({ onNext, onBack }: StepProps) {
           icon={<Users size={16} />}
           title="Dependents"
           badge={
-            depFields.length > 0 ? (
-              <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded font-medium">
-                {depFields.length}
-              </span>
-            ) : null
-          }
-        >
-          <div className="flex flex-col gap-4">
-            {depFields.length === 0 && (
-              <p className="text-sm text-muted text-center py-2">No dependents added.</p>
-            )}
-            {depFields.map((field, i) => (
-              <div key={field.id} className="rounded-lg border border-border p-4 relative">
-                <button
-                  type="button"
-                  onClick={() => removeDep(i)}
-                  className="absolute top-3 right-3 text-muted hover:text-red transition-colors"
-                  aria-label="Remove dependent"
-                >
-                  <Trash2 size={14} />
-                </button>
-                <div className="grid grid-cols-6 gap-4">
-                  <div className="col-span-3">
-                    <Field label="Full Name" req error={errors.dependents?.[i]?.fullName?.message}>
-                      <input
-                        {...register(`dependents.${i}.fullName`)}
-                        className={fieldInputCls}
-                        placeholder="Last, First, Middle"
-                      />
-                    </Field>
-                  </div>
-                  <div className="col-span-2">
-                    <Field label="Date of Birth" req error={errors.dependents?.[i]?.dateOfBirth?.message}>
-                      <input
-                        type="date"
-                        {...register(`dependents.${i}.dateOfBirth`)}
-                        className={cn(fieldInputCls, "font-mono")}
-                      />
-                    </Field>
-                  </div>
-                  <div className="col-span-1 flex items-end pb-1">
-                    <Checkbox
-                      checked={watch(`dependents.${i}.isIncapacitated`)}
-                      onChange={(v) => setValue(`dependents.${i}.isIncapacitated`, v)}
-                      label="Incapacitated"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
             <button
               type="button"
               onClick={() => appendDep({ fullName: "", dateOfBirth: "", isIncapacitated: false })}
-              className="flex items-center gap-2 text-sm text-blue font-medium hover:opacity-80 transition-opacity"
+              className="flex items-center gap-1.5 text-xs text-white/80 hover:text-white border border-white/30 hover:border-white/60 px-2 py-0.5 rounded transition-colors"
             >
-              <Plus size={14} />
-              Add Dependent
+              <Plus size={11} />
+              Add
             </button>
-          </div>
+          }
+        >
+          {depFields.length === 0 ? (
+            <p className="text-sm text-muted text-center py-2">No dependents added.</p>
+          ) : (
+            <table className="tbl w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="px-3 py-2 text-left text-xs text-muted font-semibold w-12">#</th>
+                  <th className="px-3 py-2 text-left text-xs text-muted font-semibold">Full Name</th>
+                  <th className="px-3 py-2 text-left text-xs text-muted font-semibold">Date of Birth</th>
+                  <th className="px-3 py-2 text-left text-xs text-muted font-semibold">Incapacitated</th>
+                  <th className="px-3 py-2 w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {depFields.map((field, i) => (
+                  <tr key={field.id} className="border-b border-border last:border-0">
+                    <td className="px-3 py-2 font-mono text-xs text-muted">
+                      D-{String(i + 1).padStart(2, "0")}
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        {...register(`dependents.${i}.fullName`)}
+                        className={cn(fieldInputCls, "text-sm py-1")}
+                        placeholder="DELA CRUZ, JUAN"
+                      />
+                      {errors.dependents?.[i]?.fullName && (
+                        <p className="text-xs text-red mt-0.5">{errors.dependents[i]!.fullName!.message}</p>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="date"
+                        {...register(`dependents.${i}.dateOfBirth`)}
+                        className={cn(fieldInputCls, "font-mono text-sm py-1")}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Checkbox
+                        checked={watch(`dependents.${i}.isIncapacitated`)}
+                        onChange={(v) => setValue(`dependents.${i}.isIncapacitated`, v)}
+                        label="Yes"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => removeDep(i)}
+                        className="text-muted hover:text-red transition-colors"
+                        aria-label="Remove dependent"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </DarkSection>
 
         {/* Identification */}

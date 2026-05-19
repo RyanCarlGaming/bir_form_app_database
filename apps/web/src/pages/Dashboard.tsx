@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { FileText, Users, AlertCircle, RotateCcw, type LucideIcon } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import { DonutChart, BarChart } from "../components/Charts";
 import StatusPill from "../components/StatusPill";
@@ -21,18 +22,13 @@ function formatRef(form: FormSubmission) {
 }
 
 function kpiCards(stats: StatsSummary) {
-  const { total, byStatus } = stats;
-  const filed = byStatus.filed ?? 0;
+  const { total, totalTaxpayers, byStatus } = stats;
   return [
-    { label: "Total Applications", value: total, sub: `${byStatus.draft ?? 0} draft` },
-    {
-      label: "Issued TINs",
-      value: filed,
-      sub: total > 0 ? `${Math.round((filed / total) * 100)}% of total` : "0%",
-    },
-    { label: "Verifying", value: byStatus.submitted ?? 0, sub: "Pending review" },
-    { label: "Returned", value: byStatus.amended ?? 0, sub: "Awaiting correction" },
-  ];
+    { label: "Total Applications",      value: total,                    sub: `${byStatus.draft ?? 0} draft`,      icon: FileText },
+    { label: "Registered Taxpayers",    value: totalTaxpayers ?? 0,      sub: "Unique TIN holders",                icon: Users },
+    { label: "Pending Verification",    value: byStatus.submitted ?? 0,  sub: "Awaiting review",                   icon: AlertCircle },
+    { label: "Returned for Correction", value: byStatus.amended ?? 0,    sub: "Awaiting correction",               icon: RotateCcw },
+  ] as Array<{ label: string; value: number; sub: string; icon: LucideIcon }>;
 }
 
 function DashboardSkeleton() {
@@ -76,14 +72,17 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageHeader title="Dashboard" sub="BIR Form 1902 filing overview" />
+      <PageHeader title="System Dashboard" sub="Overview of all BIR Form 1902 applications and taxpayer records." />
 
       {/* KPI strip */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        {kpiCards(stats).map(({ label, value, sub }) => (
+        {kpiCards(stats).map(({ label, value, sub, icon: Icon }) => (
           <div key={label} className="rounded-xl border border-border bg-surface p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.04em] text-muted">{label}</p>
-            <p className="mt-2 text-3xl font-bold font-mono text-text">{value}</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.04em] text-muted">{label}</p>
+              <Icon size={20} className="text-muted" />
+            </div>
+            <p className="text-3xl font-bold font-mono text-text">{value}</p>
             <p className="mt-1 text-xs text-muted">{sub}</p>
           </div>
         ))}
