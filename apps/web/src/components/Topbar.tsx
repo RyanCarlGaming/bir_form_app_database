@@ -3,14 +3,14 @@ import { MapPin, Search, Bell, Sun, Moon } from "lucide-react";
 import { useTheme } from "../lib/useTheme";
 
 const tabs = [
-  { label: "Dashboard",    href: "/" },
+  { label: "Dashboard",    href: "/dashboard" },
   { label: "Applications", href: "/applications" },
   { label: "Records",      href: "/records" },
   { label: "Reports",      href: "/reports" },
 ];
 
 function activeTab(location: string): string {
-  if (location === "/") return "/";
+  if (location === "/dashboard") return "/dashboard";
   if (location.startsWith("/applications")) return "/applications";
   if (
     location.startsWith("/registry") ||

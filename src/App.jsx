@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Switch, Route, useLocation, useParams } from "wouter";
 import Layout from "./components/Layout";
+import LandingPage from "./pages/LandingPage";
 import SignIn from "./pages/SignIn";
 import Dashboard from "./pages/Dashboard";
 import NewApplication from "./pages/NewApplication";
@@ -26,6 +27,10 @@ function RequireAuth({ children }) {
   return <>{children}</>;
 }
 
+function RootRoute() {
+  return <LandingPage />;
+}
+
 function LayoutRoute({ path, section, component: Component }) {
   return (
     <Route path={path}>
@@ -46,7 +51,9 @@ function ApplicationDetailRoute() {
 export default function App() {
   return (
     <Switch>
+      <Route path="/" component={RootRoute} />
       <Route path="/sign-in" component={SignIn} />
+      <LayoutRoute path="/dashboard" section="Dashboard" component={Dashboard} />
       <LayoutRoute path="/applications/new" section="Applications" component={NewApplication} />
       <LayoutRoute path="/applications/:id" section="Applications" component={ApplicationDetailRoute} />
       <LayoutRoute path="/applications" section="Applications" component={ApplicationsList} />
@@ -59,7 +66,6 @@ export default function App() {
       <LayoutRoute path="/data-dictionary" section="Data Dictionary" component={DataDictionary} />
       <LayoutRoute path="/audit-log" section="Audit Log" component={AuditLog} />
       <LayoutRoute path="/settings" section="Settings" component={Settings} />
-      <LayoutRoute path="/" section="Dashboard" component={Dashboard} />
       <Route>
         <Layout>
           <NotFound />

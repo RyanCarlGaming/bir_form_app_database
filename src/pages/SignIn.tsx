@@ -11,7 +11,7 @@ export default function SignIn() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     localStorage.setItem("authed", "1");
-    navigate("/");
+    navigate("/dashboard");
   }
 
   return (

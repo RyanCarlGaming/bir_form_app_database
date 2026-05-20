@@ -15,7 +15,7 @@ const sections: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "WORKSPACE",
     items: [
-      { href: "/",                   label: "Dashboard",           icon: LayoutDashboard },
+      { href: "/dashboard",          label: "Dashboard",           icon: LayoutDashboard },
       { href: "/applications/new",   label: "New Application",     icon: Plus },
       { href: "/drafts",             label: "My Drafts",           icon: FileText },
     ],
@@ -40,8 +40,8 @@ const sections: Array<{ label: string; items: NavItem[] }> = [
 ];
 
 function isActive(href: string, location: string) {
-  if (href === "/") return location === "/";
-  if (href === "/applications") return location === "/applications";
+  if (href === "/dashboard") return location === "/dashboard";
+  if (href === "/applications") return location.startsWith("/applications");
   return location.startsWith(href);
 }
 
