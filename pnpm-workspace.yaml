@@ -1,0 +1,8 @@
+packages:
+  - "."
+
+allowBuilds:
+  sqlite3: true
+
+onlyBuiltDependencies:
+  - sqlite3

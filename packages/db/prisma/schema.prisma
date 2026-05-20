@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum TaxpayerType {
+  local
+  resident
+  alien
+}
+
+enum Gender {
+  male
+  female
+}
+
+enum CivilStatus {
+  single
+  married
+  widowed
+  separated
+}
+
+enum RegisteringOfficeType {
+  head
+  branch
+  rdo
+  ltdo
+}
+
+enum EmploymentType {
+  primary
+  concurrent
+  successive
+}
+
+enum ExemptionClaimant {
+  husband
+  wife
+}
+
+enum FormStatus {
+  draft
+  submitted
+  filed
+  amended
+}
+
+// Shared lookup table for Philippine municipalities (3NF: removes town/province from Taxpayer and Employer)
+model Location {
+  munCode   String     @id
+  town      String
+  province  String
+  taxpayers Taxpayer[]
+  employers Employer[]
+}
+
+model Taxpayer {
+  id               Int              @id @default(autoincrement())
+  tin              String           @unique
+  birRegDate       DateTime
+  pcn              String
+  taxpayerType     TaxpayerType
+  fullName         String
+  gender           Gender
+  civilStatus      CivilStatus
+  dateOfBirth      DateTime
+  placeOfBirth     String
+  citizenship      String
+  otherCitizenship String?
+  motherFullName   String
+  fatherFullName   String
+  // BIR Item 15 — local residence address (8 sub-fields per the actual form)
+  addrUnit         String?
+  addrBuilding     String?
+  addrLot          String?
+  addrStreet       String
+  addrSubdivision  String?
+  addrBarangay     String
+  addrTownDistrict String?
+  addrCity         String
+  foreignAddress   String?
+  munCode          String?
+  location         Location?        @relation(fields: [munCode], references: [munCode])
+  landline         String?
+  fax              String?
+  mobile           String?          @unique
+  email            String?          @unique
+  taxType          String
+  formType         String
+  atc              String
+  idType           String
+  idNumber         String           @unique
+  idEffectivity    DateTime
+  idExpiry         DateTime
+  idIssuer         String
+  idPlace          String
+  rdoCode          Int
+  zipCode          String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  spouse           Spouse?
+  employers        Employer[]
+  dependents       Dependent[]
+  formSubmissions  FormSubmission[]
+}
+
+// Extracted to its own table (2NF/3NF): spouse data is independent of the taxpayer's core profile
+model Spouse {
+  id                Int               @id @default(autoincrement())
+  taxpayerId        Int               @unique
+  taxpayer          Taxpayer          @relation(fields: [taxpayerId], references: [id], onDelete: Cascade)
+  spouseTin         String?
+  spouseFullName    String
+  spouseEmployment  String
+  exemptionClaimant ExemptionClaimant
+}
+
+// Extracted to its own table (2NF): employer details are independent of the taxpayer's core profile
+model Employer {
+  id                    Int                   @id @default(autoincrement())
+  taxpayerId            Int
+  taxpayer              Taxpayer              @relation(fields: [taxpayerId], references: [id], onDelete: Cascade)
+  employerTin           String
+  employerFullName      String
+  employerFullAddress   String
+  empLandline           String?
+  munCode               String?
+  location              Location?             @relation(fields: [munCode], references: [munCode])
+  registeringOfficeType RegisteringOfficeType
+  employmentType        EmploymentType
+  hireDate              DateTime
+}
+
+model Dependent {
+  id              Int      @id @default(autoincrement())
+  taxpayerId      Int
+  taxpayer        Taxpayer @relation(fields: [taxpayerId], references: [id], onDelete: Cascade)
+  fullName        String
+  dateOfBirth     DateTime
+  isIncapacitated Boolean
+}
+
+model FormSubmission {
+  id                   Int        @id @default(autoincrement())
+  taxpayerId           Int
+  taxpayer             Taxpayer   @relation(fields: [taxpayerId], references: [id], onDelete: Cascade)
+  formType             String
+  taxableYear          Int?
+  taxablePeriod        String?
+  taxablePeriodEnd     String?
+  grossIncome          Float?
+  allowableDeductions  Float?
+  taxableIncome        Float?
+  taxDue               Float?
+  taxWithheld          Float?
+  taxPayable           Float?
+  penaltiesAndInterest Float?
+  totalAmountDue       Float?
+  status               FormStatus @default(draft)
+  filedDate            DateTime?
+  remarks              String?
+  formData             String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+}
