@@ -74,16 +74,16 @@ export default function LandingPage() {
         <div className="relative max-w-7xl mx-auto px-6 py-20 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue/10 border border-blue/20 mb-8">
             <span className="w-2 h-2 rounded-full bg-green" />
-            <span className="text-xs font-semibold text-blue uppercase tracking-widest">Welcome to the future</span>
+            <span className="text-xs font-semibold text-blue uppercase tracking-widest">SQLite Database ONLINE</span>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-extrabold text-text tracking-tight leading-tight mb-6">
-            Simplify Your BIR <span className="text-blue">Form 1902</span> Registration
+          <h1 className="text-5xl md:text-5xl font-extrabold text-text tracking-tight leading-tight mb-6">
+            TIN-Link: <span className="text-blue">Automated</span> Employee Registration System 
           </h1>
 
           <p className="text-lg md:text-xl text-text-2 max-w-2xl mx-auto mb-12">
             Digitize employee TIN registration with our structured, normalized form system. Submit applications,
-            track status, and manage records all in one secure portal.
+            track status, and manage records all in one portal.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -93,21 +93,26 @@ export default function LandingPage() {
             >
               Get Started
             </button>
-            <button className="px-8 py-3 rounded-lg border border-border-strong text-text font-semibold hover:bg-surface transition-colors">
-              Learn More
-            </button>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-8 pt-12 border-t border-border">
             {[
-              { val: "10000+", label: "Forms Processed" },
-              { val: "99.9%", label: "Uptime" },
-              { val: "24/7", label: "Support" },
+              { val: "Group Members", label: ["Ryan Carl A. Concepcion", "Rhylle Medina", "Jino Gabriel Tuastomban", "Jaycee Baquing", "Daniel Flor"] },
+              { val: "School / University", label: "Polytechnic University of the Philippines - Main" },
+              { val: "Database", label: "SQLite" },
             ].map(({ val, label }) => (
               <div key={val} className="flex flex-col gap-2">
                 <span className="font-mono text-2xl font-bold text-blue">{val}</span>
-                <span className="text-xs text-muted uppercase tracking-widest">{label}</span>
+                {Array.isArray(label) ? (
+                  <div className="text-xs text-muted uppercase tracking-widest flex flex-col gap-1">
+                    {label.map((item, index) => (
+                      <span key={index}>{item}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted uppercase tracking-widest">{label}</span>
+                )}
               </div>
             ))}
           </div>
