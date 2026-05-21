@@ -9,7 +9,9 @@ import { api, type OfficeProfile } from "../lib/api";
 import { useTheme } from "../lib/useTheme";
 import { cn } from "../lib/utils";
 
-type ProfileForm = Omit<OfficeProfile, "id" | "updatedAt">;
+type ProfileForm = Omit<OfficeProfile, "id" | "updatedAt"> & {
+  gender: "male" | "female";
+};
 
 function initials(name: string) {
   return name
@@ -35,7 +37,30 @@ function profileToForm(profile: OfficeProfile): ProfileForm {
     province: profile.province ?? "",
     zipCode: profile.zipCode ?? "",
     photoDataUrl: profile.photoDataUrl ?? "",
+    gender: (profile.gender as "male" | "female") ?? "male",
+    photoDataUrl: "",
   };
+}
+
+function GenderAvatar({ gender }: { gender: "male" | "female" }) {
+  return (
+    <div className="w-28 h-28 rounded-full bg-navy text-white grid place-items-center">
+      {gender === "male" ? (
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M20 16v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4" />
+          <path d="M12 16v6" />
+          <path d="M8 16h8" />
+          <circle cx="12" cy="8" r="4" />
+        </svg>
+      ) : (
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="10" r="4" />
+          <path d="M12 14v7" />
+          <path d="M9 18h6" />
+        </svg>
+      )}
+    </div>
+  );
 }
 
 function ProfileField({
@@ -130,18 +155,20 @@ export default function Settings() {
 
           <div className="p-5 flex items-start gap-5">
             <div className="flex flex-col items-center gap-3">
-              <div className="w-28 h-28 rounded-full bg-navy text-white grid place-items-center overflow-hidden text-2xl font-semibold">
-                {form.photoDataUrl ? (
-                  <img src={form.photoDataUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  initials(form.officerName)
-                )}
+                <GenderAvatar gender={form.gender} />
+                
+                <label className="flex flex-col gap-1 w-full">
+                  <span className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2">Gender</span>
+                  <select 
+                    value={form.gender} 
+                    onChange={(e) => setField("gender", e.target.value)}
+                    className={fieldInputCls}>
+                      
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </label>
               </div>
-              <label className="inline-flex items-center gap-2 px-3 py-1.5 border border-border text-sm rounded hover:bg-border cursor-pointer transition-colors">
-                <Camera size={15} />
-                Change Photo
-                <input type="file" accept="image/*" onChange={handlePhoto} className="hidden" />
-              </label>
             </div>
 
             <div className="flex-1 grid grid-cols-2 gap-4">

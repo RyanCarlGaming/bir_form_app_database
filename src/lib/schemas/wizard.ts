@@ -1,8 +1,8 @@
-import { z } from "zod";
+import { optional, z } from "zod";
 
 export const step1Schema = z.object({
-  tin: z.string().min(9, "TIN must be at least 9 digits"),
-  birRegDate: z.string().min(1, "BIR registration date required"),
+  tin: z.string(),
+  birRegDate: z.string(),
   pcn: z.string(),
   taxpayerType: z.enum(["local", "resident", "alien"]),
   lastName:   z.string().min(1, "Required"),

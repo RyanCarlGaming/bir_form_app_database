@@ -81,7 +81,7 @@ export default function Step1Taxpayer({ onNext }: StepProps) {
         <div className="grid grid-cols-6 gap-x-4 gap-y-5">
           {/* TIN / BIR Reg Date / PCN */}
           <div className="col-span-2">
-            <Field label="TIN" req error={errors.tin?.message} help="9 or 12 digits">
+            <Field label="TIN" error={errors.tin?.message} help="9 or 12 digits">
               <input
                 {...register("tin")}
                 className={cn(fieldInputCls, "font-mono")}
@@ -90,7 +90,7 @@ export default function Step1Taxpayer({ onNext }: StepProps) {
             </Field>
           </div>
           <div className="col-span-2">
-            <Field label="BIR Registration Date" req error={errors.birRegDate?.message}>
+            <Field label="BIR Registration Date" error={errors.birRegDate?.message}>
               <input type="date" {...register("birRegDate")} className={cn(fieldInputCls, "font-mono")} />
             </Field>
           </div>
