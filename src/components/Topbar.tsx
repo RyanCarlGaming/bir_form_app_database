@@ -8,8 +8,7 @@ import { useTheme } from "../lib/useTheme";
 const tabs = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Applications", href: "/applications" },
-  { label: "Records", href: "/records" },
-  { label: "Reports", href: "/reports" },
+  { label: "Records", href: "/reports" },
 ];
 
 function activeTab(location: string): string {
@@ -20,15 +19,16 @@ function activeTab(location: string): string {
     location.startsWith("/issued-tins") ||
     location.startsWith("/verification-queue") ||
     location.startsWith("/drafts") ||
-    location.startsWith("/records")
-  ) return "/records";
-  if (location.startsWith("/reports")) return "/reports";
+    location.startsWith("/records") ||
+    location.startsWith("/reports")
+  ) return "/reports";
   return "";
 }
 
 export default function Topbar() {
   const [location, navigate] = useLocation();
   const current = activeTab(location);
+  const [showRecordsMenu, setShowRecordsMenu] = useState(false);
   const { theme, toggle } = useTheme();
   const [search, setSearch] = useState("");
   const { data: profile } = useQuery({
@@ -56,6 +56,50 @@ export default function Topbar() {
       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
         {tabs.map(({ label, href }) => {
           const active = current === href;
+          if (label === "Records & Reports") {
+            return (
+              <div
+                key={href}
+                onMouseEnter={() => setShowRecordsMenu(true)}
+                onMouseLeave={() => setShowRecordsMenu(false)}
+                style={{ position: "relative", display: "inline-block" }}
+              >
+                <Link
+                  href={href}
+                  style={{
+                    display: "inline-flex", alignItems: "center",
+                    padding: "6px 14px",
+                    borderRadius: 8,
+                    fontSize: 13.5, fontWeight: active ? 600 : 400,
+                    color: active ? "#fff" : "var(--color-text)",
+                    background: active ? "#0B1220" : "transparent",
+                    textDecoration: "none",
+                    transition: "background .12s ease, color .12s ease",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {label}
+                </Link>
+                {showRecordsMenu && (
+                  <div style={{
+                    position: "absolute",
+                    top: 40,
+                    left: 0,
+                    background: "var(--color-surface)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 8,
+                    padding: 8,
+                    minWidth: 160,
+                    zIndex: 40,
+                  }}>
+                    <Link href="/records" style={{ display: "block", padding: "6px 10px", color: "var(--color-text)", textDecoration: "none" }}>Records</Link>
+                    <Link href="/reports" style={{ display: "block", padding: "6px 10px", color: "var(--color-text)", textDecoration: "none" }}>Reports</Link>
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           return (
             <Link
               key={href}
@@ -80,20 +124,7 @@ export default function Topbar() {
 
       <div style={{ flex: 1 }} />
 
-      <div style={{
-        display: "flex", alignItems: "center", gap: 6,
-        padding: "5px 12px",
-        border: "1px solid var(--color-border)",
-        borderRadius: 999,
-        fontSize: 13, color: "var(--color-text)",
-        whiteSpace: "nowrap",
-        flexShrink: 0,
-      }}>
-        <MapPin size={13} style={{ color: "var(--color-muted)", flexShrink: 0 }} />
-        <span style={{ fontWeight: 600 }}>{profile?.companyName ?? "Default Company"}</span>
-        <span style={{ color: "var(--color-muted)", margin: "0 2px" }}>·</span>
-        <span style={{ color: "var(--color-muted)" }}>{profile?.office ?? "QC"}</span>
-      </div>
+      {/* Company / office display removed per request */}
 
       <form onSubmit={submitSearch} style={{
         display: "flex", alignItems: "center", gap: 8,

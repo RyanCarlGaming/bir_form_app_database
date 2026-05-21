@@ -81,6 +81,7 @@ export interface OfficeProfile {
   province?: string;
   zipCode?: string;
   photoDataUrl?: string;
+  gender?: "male" | "female";
   updatedAt: string;
 }
 

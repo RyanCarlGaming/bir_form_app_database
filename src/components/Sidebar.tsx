@@ -35,7 +35,6 @@ const sections: Array<{ label: string; items: NavItem[] }> = [
     label: "ADMIN",
     items: [
       { href: "/data-dictionary",    label: "Data Dictionary",     icon: BookOpen },
-      { href: "/audit-log",          label: "Audit Log",           icon: ClipboardList },
       { href: "/settings",           label: "Settings",            icon: Settings },
     ],
   },

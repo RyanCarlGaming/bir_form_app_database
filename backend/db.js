@@ -214,6 +214,7 @@ async function createTables() {
       role TEXT NOT NULL,
       region TEXT NOT NULL,
       office TEXT NOT NULL,
+      gender TEXT,
       phone TEXT,
       email TEXT,
       street TEXT,
@@ -228,13 +229,14 @@ async function createTables() {
 
   await ensureColumn('form_submissions', 'companyName', "TEXT NOT NULL DEFAULT 'Default Company'");
   await ensureColumn('office_profiles', 'companyName', "TEXT NOT NULL DEFAULT 'Default Company'");
+  await ensureColumn('office_profiles', 'gender', "TEXT");
 
   const profile = await get('SELECT id FROM office_profiles WHERE id = 1');
   if (!profile) {
     await run(
       `INSERT INTO office_profiles (
         id, officerName, companyName, role, region, office, phone, email, street, barangay,
-        city, province, zipCode, photoDataUrl, updatedAt
+        city, province, zipCode, gender, photoDataUrl, updatedAt
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         1,
@@ -249,6 +251,7 @@ async function createTables() {
         '',
         'Quezon City',
         'Metro Manila',
+        '',
         '',
         '',
         nowIso(),
@@ -619,7 +622,7 @@ export async function getProfile() {
 export async function updateProfile(input) {
   const allowed = [
     'officerName', 'companyName', 'role', 'region', 'office', 'phone', 'email', 'street',
-    'barangay', 'city', 'province', 'zipCode', 'photoDataUrl',
+    'barangay', 'city', 'province', 'zipCode', 'gender', 'photoDataUrl',
   ];
   const entries = allowed
     .filter((key) => input[key] !== undefined)

@@ -1,6 +1,6 @@
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import { ErrorCard } from "../components/ErrorCard";
 import { Skeleton } from "../components/Skeleton";
@@ -12,15 +12,6 @@ import { cn } from "../lib/utils";
 type ProfileForm = Omit<OfficeProfile, "id" | "updatedAt"> & {
   gender: "male" | "female";
 };
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "RO";
-}
 
 function profileToForm(profile: OfficeProfile): ProfileForm {
   return {
@@ -36,9 +27,8 @@ function profileToForm(profile: OfficeProfile): ProfileForm {
     city: profile.city ?? "",
     province: profile.province ?? "",
     zipCode: profile.zipCode ?? "",
-    photoDataUrl: profile.photoDataUrl ?? "",
-    gender: (profile.gender as "male" | "female") ?? "male",
     photoDataUrl: "",
+    gender: (profile.gender === "female" ? "female" : "male"),
   };
 }
 
@@ -46,32 +36,23 @@ function GenderAvatar({ gender }: { gender: "male" | "female" }) {
   return (
     <div className="w-28 h-28 rounded-full bg-navy text-white grid place-items-center">
       {gender === "male" ? (
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M20 16v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4" />
-          <path d="M12 16v6" />
-          <path d="M8 16h8" />
-          <circle cx="12" cy="8" r="4" />
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="13" r="6" />
+          <path d="M16 3h5v5" />
+          <path d="M21 3l-5.75 5.75" />
         </svg>
       ) : (
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="10" r="4" />
-          <path d="M12 14v7" />
-          <path d="M9 18h6" />
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="10" r="6" />
+          <path d="M12 16v6" />
+          <path d="M9 19h6" />
         </svg>
       )}
     </div>
   );
 }
 
-function ProfileField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
+function ProfileField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
     <label className="flex flex-col gap-1">
       <span className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2">{label}</span>
@@ -113,17 +94,6 @@ export default function Settings() {
     setSaveMessage("");
   }
 
-  function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file || !form) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setField("photoDataUrl", String(reader.result ?? ""));
-    };
-    reader.readAsDataURL(file);
-  }
-
   if (isLoading || !form) {
     return (
       <>
@@ -136,13 +106,9 @@ export default function Settings() {
     );
   }
 
-  if (isError) {
-    return <ErrorCard message="Could not load profile settings." onRetry={refetch} />;
-  }
+  if (isError) return <ErrorCard message="Could not load profile settings." onRetry={refetch} />;
 
-  const address = [form.street, form.barangay, form.city, form.province, form.zipCode]
-    .filter(Boolean)
-    .join(", ");
+  const address = [form.street, form.barangay, form.city, form.province, form.zipCode].filter(Boolean).join(", ");
 
   return (
     <>
@@ -152,29 +118,27 @@ export default function Settings() {
           <div className="px-5 py-3 border-b border-border bg-canvas">
             <p className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2">Profile Shown</p>
           </div>
-
           <div className="p-5 flex items-start gap-5">
             <div className="flex flex-col items-center gap-3">
-                <GenderAvatar gender={form.gender} />
-                
-                <label className="flex flex-col gap-1 w-full">
-                  <span className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2">Gender</span>
-                  <select 
-                    value={form.gender} 
-                    onChange={(e) => setField("gender", e.target.value)}
-                    className={fieldInputCls}>
-                      
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                  </select>
-                </label>
-              </div>
+              <GenderAvatar gender={form.gender} />
             </div>
-
             <div className="flex-1 grid grid-cols-2 gap-4">
               <ProfileField label="Officer Name" value={form.officerName} onChange={(v) => setField("officerName", v)} />
               <ProfileField label="Company" value={form.companyName} onChange={(v) => setField("companyName", v)} />
               <ProfileField label="Role" value={form.role} onChange={(v) => setField("role", v)} />
+              
+              <label className="flex flex-col gap-1 w-full">
+                <span className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2">Gender</span>
+                <select 
+                  value={form.gender} 
+                  onChange={(e) => setField("gender", e.target.value as "male" | "female")}
+                  className={fieldInputCls}
+                >
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </label>
+
               <ProfileField label="Region" value={form.region} onChange={(v) => setField("region", v)} />
               <ProfileField label="Office" value={form.office} onChange={(v) => setField("office", v)} />
               <ProfileField label="Phone Number" value={form.phone ?? ""} onChange={(v) => setField("phone", v)} />
@@ -186,7 +150,6 @@ export default function Settings() {
               <ProfileField label="ZIP Code" value={form.zipCode ?? ""} onChange={(v) => setField("zipCode", v)} />
             </div>
           </div>
-
           <div className="px-5 py-3 border-t border-border flex items-center justify-between">
             <p className={cn("text-xs", saveMutation.isError ? "text-red" : "text-muted")}>
               {saveMutation.isError ? (saveMutation.error as Error).message : saveMessage || "Profile is saved in the database."}
@@ -202,7 +165,6 @@ export default function Settings() {
             </button>
           </div>
         </div>
-
         <div className="flex flex-col gap-4">
           <div className="rounded-xl border border-border bg-surface p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2 mb-4">Visible Profile</p>
@@ -217,7 +179,6 @@ export default function Settings() {
               {address && <span>{address}</span>}
             </div>
           </div>
-
           <div className="rounded-xl border border-border bg-surface p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2 mb-4">Appearance</p>
             <div className="flex items-center justify-between gap-4">
@@ -225,11 +186,7 @@ export default function Settings() {
                 <p className="text-sm font-medium text-text capitalize">{theme} mode</p>
                 <p className="text-xs text-muted mt-1">Applies to the current browser.</p>
               </div>
-              <button
-                type="button"
-                onClick={toggle}
-                className="px-4 py-2 border border-border text-sm font-medium rounded hover:bg-border transition-colors"
-              >
+              <button type="button" onClick={toggle} className="px-4 py-2 border border-border text-sm font-medium rounded hover:bg-border transition-colors">
                 Toggle Theme
               </button>
             </div>
