@@ -12,6 +12,8 @@ import {
   Users,
   BookOpen,
   ChevronDown,
+  Menu,
+  X,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -93,6 +95,22 @@ const groups: GroupItem[] = [
   },
 ];
 
+const mobileItems: DropdownItem[] = [
+  {
+    href: "/dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+  },
+  ...processItems,
+  ...queueItems,
+  ...directoryItems,
+  {
+    href: "/settings",
+    label: "Settings",
+    icon: Settings,
+  },
+];
+
 function isActive(href: string, location: string) {
   return location.startsWith(href);
 }
@@ -116,6 +134,7 @@ export default function Navbar() {
   const [location] = useLocation();
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const closeDropdown = () => {
@@ -129,8 +148,12 @@ export default function Navbar() {
     };
   }, []);
 
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location]);
+
   const { data: profile } = useQuery({
-    queryKey: ["profile"],
+    queryKey: ["profile", localStorage.getItem("token")],
     queryFn: api.profile.get,
   });
 
@@ -140,7 +163,7 @@ export default function Navbar() {
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-zinc-950 border-b border-gray-200 dark:border-zinc-800 shadow-sm">
-        <div className="h-16 px-6 flex items-center justify-between">
+        <div className="h-16 px-4 sm:px-6 flex items-center justify-between">
 
           {/* LEFT */}
           <div className="flex items-center gap-3 shrink-0">
@@ -152,12 +175,12 @@ export default function Navbar() {
               />
             </div>
 
-            <div className="leading-tight">
+            <div className="leading-tight min-w-0">
               <div className="font-bold text-gray-900 dark:text-white text-[15px]">
                 BIR Online
               </div>
 
-              <div className="font-bold text-gray-900 dark:text-white text-[15px]">
+              <div className="font-bold text-gray-900 dark:text-white text-[15px] hidden xs:block">
                 Registration
               </div>
             </div>
@@ -299,7 +322,7 @@ export default function Navbar() {
           </nav>
 
           {/* RIGHT PROFILE */}
-          <div className="relative">
+          <div className="relative hidden sm:block">
             <Link
               href="/settings"
               className="
@@ -335,7 +358,7 @@ export default function Navbar() {
                 )}
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="hidden sm:flex items-center gap-1">
                 <span className="
                   text-sm font-semibold
                   text-gray-800 dark:text-zinc-100
@@ -350,8 +373,111 @@ export default function Navbar() {
               </div>
             </Link>
           </div>
+
+          <button
+            type="button"
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            onClick={() => setMobileOpen((open) => !open)}
+            className="
+              lg:hidden
+              inline-grid h-10 w-10 place-items-center
+              rounded-lg
+              border border-gray-200 dark:border-zinc-700
+              bg-white dark:bg-zinc-900
+              text-gray-800 dark:text-zinc-100
+              hover:bg-gray-50 dark:hover:bg-zinc-800
+              transition-colors
+            "
+          >
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
       </header>
+
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <button
+            type="button"
+            aria-label="Close menu backdrop"
+            onClick={() => setMobileOpen(false)}
+            className="absolute inset-0 bg-black/35"
+          />
+
+          <aside className="
+            absolute right-0 top-0 h-dvh w-[min(84vw,320px)]
+            bg-white dark:bg-zinc-950
+            border-l border-gray-200 dark:border-zinc-800
+            shadow-2xl
+            flex flex-col
+          ">
+            <div className="h-16 px-4 flex items-center justify-between border-b border-gray-100 dark:border-zinc-800">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full overflow-hidden shrink-0">
+                  <img
+                    src={Logo}
+                    alt="BIR Logo"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                    BIR Online
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-zinc-400 truncate">
+                    Hi, {firstName}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                aria-label="Close menu"
+                onClick={() => setMobileOpen(false)}
+                className="
+                  grid h-9 w-9 place-items-center rounded-lg
+                  text-gray-700 dark:text-zinc-100
+                  hover:bg-gray-100 dark:hover:bg-zinc-800
+                "
+              >
+                <X size={19} />
+              </button>
+            </div>
+
+            <nav className="flex-1 overflow-y-auto p-3">
+              {mobileItems.map((item) => {
+                const active = isActive(item.href, location);
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`
+                      flex h-12 items-center gap-3 rounded-lg px-3
+                      text-sm font-medium transition-colors
+                      ${
+                        active
+                          ? "bg-gray-100 text-gray-950 dark:bg-zinc-800 dark:text-white"
+                          : "text-gray-600 hover:bg-gray-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                      }
+                    `}
+                    style={{
+                      textDecoration: "none",
+                      WebkitTapHighlightColor: "transparent",
+                    }}
+                  >
+                    <item.icon
+                      size={18}
+                      className={active ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-zinc-400"}
+                    />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </aside>
+        </div>
+      )}
 
       {/* SPACING */}
       <div className="h-16" />

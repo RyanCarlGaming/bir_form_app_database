@@ -405,7 +405,10 @@ function AlertBanner() {
 export default function Dashboard() {
   const statsQ = useDashboardStats();
   const formsQ = useRecentForms();
-  const profileQ = useQuery({ queryKey: ["profile"], queryFn: api.profile.get });
+  const profileQ = useQuery({
+    queryKey: ["profile", localStorage.getItem("token")],
+    queryFn: api.profile.get,
+  });
 
   if (statsQ.isLoading || formsQ.isLoading) return <DashboardSkeleton />;
   if (statsQ.isError)

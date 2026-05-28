@@ -9,22 +9,42 @@ import {
   createTaxpayer,
   deleteForm,
   getFormById,
-  getProfile,
   getStatsSummary,
   getTaxpayerById,
   initializeDatabase,
   listForms,
   listTaxpayers,
   updateForm,
-  updateProfile,
   updateTaxpayer,
 } from './db.js';
+import authRoutes, {
+  deleteUserAccount,
+  getProfileForUser,
+  getUserFromRequest,
+  updateProfileForUser,
+} from './auth.js';
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 3001);
 
 app.use(cors());
-app.use(express.json({ limit: '5mb' }));
+
+app.use(express.json());
+
+app.use("/api/auth", authRoutes);
+
+app.delete('/api/auth/account', asyncRoute(async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+
+  await deleteUserAccount(user);
+  return res.json({
+    success: true,
+    message: 'Account deleted successfully',
+  });
+}));
 
 function asyncRoute(handler) {
   return (req, res, next) => {
@@ -110,12 +130,22 @@ app.delete('/api/forms/:id', asyncRoute(async (req, res) => {
 }));
 
 app.get('/api/profile', asyncRoute(async (req, res) => {
-  const profile = await getProfile();
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const profile = await getProfileForUser(user);
   res.json(profile);
 }));
 
 app.put('/api/profile', asyncRoute(async (req, res) => {
-  const profile = await updateProfile(req.body);
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  const profile = await updateProfileForUser(user, req.body);
   res.json(profile);
 }));
 

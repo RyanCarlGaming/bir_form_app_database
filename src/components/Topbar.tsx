@@ -32,7 +32,7 @@ export default function Topbar() {
   const { theme, toggle } = useTheme();
   const [search, setSearch] = useState("");
   const { data: profile } = useQuery({
-    queryKey: ["profile"],
+    queryKey: ["profile", localStorage.getItem("token")],
     queryFn: api.profile.get,
   });
 
@@ -46,10 +46,10 @@ export default function Topbar() {
   }
 
   return (
-    <div style={{
+    <div className="hidden sm:flex" style={{
       height: 56, flexShrink: 0,
       padding: "0 24px",
-      display: "flex", alignItems: "center", gap: 4,
+      alignItems: "center", gap: 4,
       borderBottom: "1px solid var(--color-border)",
       background: "var(--color-canvas)",
     }}>

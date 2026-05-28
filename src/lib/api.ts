@@ -90,13 +90,19 @@ export interface OfficeProfile {
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001/api";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = localStorage.getItem("token");
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
     ...init,
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { error?: string };
-    throw new Error(body.error ?? `HTTP ${res.status}`);
+    const body = await res.json().catch(() => ({})) as { error?: string; message?: string };
+    throw new Error(body.error ?? body.message ?? `HTTP ${res.status}`);
   }
   return res.json() as Promise<T>;
 }
@@ -145,5 +151,9 @@ export const api = {
     get: () => apiFetch<OfficeProfile>("/profile"),
     update: (body: unknown) =>
       apiFetch<OfficeProfile>("/profile", { method: "PUT", body: JSON.stringify(body) }),
+  },
+  auth: {
+    deleteAccount: () =>
+      apiFetch<{ success: boolean; message: string }>("/auth/account", { method: "DELETE" }),
   },
 };

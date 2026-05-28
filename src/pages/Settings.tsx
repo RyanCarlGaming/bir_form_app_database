@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Save } from "lucide-react";
+import { Save, LogOut, Trash2  } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import { ErrorCard } from "../components/ErrorCard";
 import { Skeleton } from "../components/Skeleton";
@@ -68,7 +68,7 @@ export default function Settings() {
   const [saveMessage, setSaveMessage] = useState("");
 
   const { data: profile, isLoading, isError, refetch } = useQuery({
-    queryKey: ["profile"],
+    queryKey: ["profile", localStorage.getItem("token")],
     queryFn: api.profile.get,
   });
 
@@ -88,10 +88,41 @@ export default function Settings() {
     },
   });
 
+  const deleteAccountMutation = useMutation({
+    mutationFn: api.auth.deleteAccount,
+    onSuccess() {
+      queryClient.clear();
+      localStorage.removeItem("authed");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      sessionStorage.clear();
+      window.location.href = "/sign-in";
+    },
+  });
+
   function setField<K extends keyof ProfileForm>(key: K, value: ProfileForm[K]) {
     if (!form) return;
     setForm({ ...form, [key]: value });
     setSaveMessage("");
+  }
+
+  function handleLogout() {
+    localStorage.removeItem("authed");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    sessionStorage.clear();
+
+    window.location.href = "/sign-in";
+  }
+
+  function handleDeleteAccount() {
+    const confirmed = window.confirm(
+      "Delete this account permanently? This cannot be undone."
+    );
+
+    if (!confirmed) return;
+
+    deleteAccountMutation.mutate();
   }
 
   if (isLoading || !form) {
@@ -123,7 +154,7 @@ export default function Settings() {
               <GenderAvatar gender={form.gender} />
             </div>
             <div className="flex-1 grid grid-cols-2 gap-4">
-              <ProfileField label="Officer Name" value={form.officerName} onChange={(v) => setField("officerName", v)} />
+              <ProfileField label="Full Name" value={form.officerName} onChange={(v) => setField("officerName", v)} />
               <ProfileField label="Company" value={form.companyName} onChange={(v) => setField("companyName", v)} />
               <ProfileField label="Role" value={form.role} onChange={(v) => setField("role", v)} />
               
@@ -179,16 +210,86 @@ export default function Settings() {
               {address && <span>{address}</span>}
             </div>
           </div>
-          <div className="rounded-xl border border-border bg-surface p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2 mb-4">Appearance</p>
-            <div className="flex items-center justify-between gap-4">
+          <div className="rounded-2xl border border-border bg-surface p-5">
+  
+            <p className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2 mb-5">
+              Appearance & Session
+            </p>
+
+            {/* THEME */}
+            <div className="flex items-center justify-between gap-4 pb-5 border-b border-border">
               <div>
-                <p className="text-sm font-medium text-text capitalize">{theme} mode</p>
-                <p className="text-xs text-muted mt-1">Applies to the current browser.</p>
+                <p className="text-sm font-medium text-text capitalize">
+                  {theme} mode
+                </p>
+
+                <p className="text-xs text-muted mt-1">
+                  Applies to the current browser.
+                </p>
               </div>
-              <button type="button" onClick={toggle} className="px-4 py-2 border border-border text-sm font-medium rounded hover:bg-border transition-colors">
+
+              <button
+                type="button"
+                onClick={toggle}
+                className="
+                  px-4 py-2
+                  border border-border
+                  text-sm font-medium
+                  rounded-xl
+                  hover:bg-border
+                  transition-colors
+                "
+              >
                 Toggle Theme
               </button>
+            </div>
+
+            {/* LOGOUT */}
+            <div className="pt-5 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="
+                  w-full
+                  inline-flex items-center justify-center gap-2
+                  px-4 py-3
+                  rounded-xl
+                  bg-red-500 hover:bg-red-600
+                  text-white
+                  text-sm font-semibold
+                  transition-colors
+                "
+              >
+                <LogOut size={16} />
+                Logout Account
+              </button>
+
+              <button
+                type="button"
+                disabled={deleteAccountMutation.isPending}
+                onClick={handleDeleteAccount}
+                className="
+                  w-full
+                  inline-flex items-center justify-center gap-2
+                  px-4 py-3
+                  rounded-xl
+                  border border-red-500
+                  text-red-500
+                  bg-transparent hover:bg-red-50
+                  text-sm font-semibold
+                  transition-colors
+                  disabled:opacity-50
+                "
+              >
+                <Trash2 size={16} />
+                {deleteAccountMutation.isPending ? "Deleting..." : "Delete Account"}
+              </button>
+
+              {deleteAccountMutation.isError && (
+                <p className="text-xs text-red-500">
+                  {(deleteAccountMutation.error as Error).message}
+                </p>
+              )}
             </div>
           </div>
         </div>

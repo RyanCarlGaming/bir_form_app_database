@@ -237,7 +237,7 @@ async function createTables() {
       `INSERT INTO office_profiles (
         id, officerName, companyName, role, region, office, phone, email, street, barangay,
         city, province, zipCode, gender, photoDataUrl, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         1,
         'Daniel Flor',
@@ -700,7 +700,7 @@ export async function getStatsSummary() {
 
   const byStatus = { draft: 0, submitted: 0, filed: 0, amended: 0 };
   for (const row of statusRows) {
-    byStatus[row.status] = row.total;
+    byStatus[row.status] = row.total; 
   }
 
   const byType = {};
