@@ -39,6 +39,8 @@ export default function Step4Spouse({ onNext, onBack }: StepProps) {
       spouseTin: state.spouseTin,
       spouseFullName: state.spouseFullName,
       spouseEmployment: state.spouseEmployment,
+      spouseEmployerTin: state.spouseEmployerTin,
+      spouseEmployerFullName: state.spouseEmployerFullName,
       exemptionClaimant: (state.exemptionClaimant as Step4Values["exemptionClaimant"]) || "",
       dependents: state.dependents,
       idType: state.idType,
@@ -144,6 +146,27 @@ export default function Step4Spouse({ onNext, onBack }: StepProps) {
                       {...register("spouseTin")}
                       className={cn(fieldInputCls, "font-mono")}
                       placeholder="000-000-000"
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-4">
+                <div className="col-span-2">
+                  <Field label="Spouse Employer TIN" error={errors.spouseEmployerTin?.message}>
+                    <input
+                      {...register("spouseEmployerTin")}
+                      className={cn(fieldInputCls, "font-mono")}
+                      placeholder="000-000-000"
+                    />
+                  </Field>
+                </div>
+                <div className="col-span-2">
+                  <Field label="Spouse Employer Full Name" error={errors.spouseEmployerFullName?.message}>
+                    <input
+                      {...register("spouseEmployerFullName")}
+                      className={fieldInputCls}
+                      placeholder="Employer full name"
                     />
                   </Field>
                 </div>
@@ -317,17 +340,6 @@ export default function Step4Spouse({ onNext, onBack }: StepProps) {
             </div>
           </div>
 
-          <div className="mt-4 rounded-lg bg-border/30 border border-border px-4 py-3 flex items-center gap-3">
-            <p className="text-xs text-muted flex-1">
-              Attach one (1) valid government-issued photo ID. Upload functionality will be available in a future release.
-            </p>
-            <button
-              type="button"
-              className="shrink-0 text-xs px-3 py-1.5 rounded border border-border bg-surface hover:bg-border transition-colors"
-            >
-              Choose file
-            </button>
-          </div>
         </DarkSection>
       </div>
     </FormShell>

@@ -27,11 +27,6 @@ function formatDate(iso?: string) {
   return iso.slice(0, 10);
 }
 
-function daysSince(iso?: string) {
-  if (!iso) return 0;
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-}
-
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function DetailCard({
@@ -62,7 +57,6 @@ function ValidationChecks({ form }: { form: FormSubmission }) {
   const tp = form.taxpayer;
   if (!tp) return null;
 
-  const employer = tp.employers?.[0];
   const checks = [
     {
       label: "All required fields filled",
@@ -78,13 +72,9 @@ function ValidationChecks({ form }: { form: FormSubmission }) {
         !tp.idEffectivity || !tp.idExpiry || tp.idExpiry >= tp.idEffectivity,
     },
     {
-      label: "Filed within 10-day window",
-      pass: !employer?.hireDate || daysSince(employer.hireDate) <= 10,
-    },
-    {
       label: "Tax type, Form, ATC locked",
       pass:
-        tp.taxType === "Compensation" && tp.formType === "1902" && tp.atc === "QC",
+        tp.taxType === "Income Tax" && tp.formType === "1700" && tp.atc === "II 011",
     },
   ];
 
@@ -187,10 +177,8 @@ interface EditState {
   tin: string;
   mobile: string;
   email: string;
-  addrStreet: string;
-  addrBarangay: string;
+  fullAddress: string;
   addrCity: string;
-  province: string;
   zipCode: string;
   rdoCode: string;
   remarks: string;
@@ -203,10 +191,8 @@ function makeEditState(form: FormSubmission): EditState {
     tin: tp?.tin ?? "",
     mobile: tp?.mobile ?? "",
     email: tp?.email ?? "",
-    addrStreet: tp?.addrStreet ?? "",
-    addrBarangay: tp?.addrBarangay ?? "",
+    fullAddress: tp?.fullAddress ?? [tp?.addrStreet, tp?.addrBarangay, tp?.addrCity].filter(Boolean).join(", "),
     addrCity: tp?.addrCity ?? "",
-    province: tp?.province ?? "",
     zipCode: tp?.zipCode ?? "",
     rdoCode: String(tp?.rdoCode ?? ""),
     remarks: form.remarks ?? "",
@@ -263,10 +249,8 @@ function EditApplicationPanel({
         <EditField label="TIN" value={value.tin} onChange={(v) => setField("tin", v)} />
         <EditField label="Mobile Number" value={value.mobile} onChange={(v) => setField("mobile", v)} />
         <EditField label="Email" value={value.email} onChange={(v) => setField("email", v)} />
-        <EditField label="Street" value={value.addrStreet} onChange={(v) => setField("addrStreet", v)} />
-        <EditField label="Barangay" value={value.addrBarangay} onChange={(v) => setField("addrBarangay", v)} />
+        <EditField label="Full Address" value={value.fullAddress} onChange={(v) => setField("fullAddress", v)} />
         <EditField label="City" value={value.addrCity} onChange={(v) => setField("addrCity", v)} />
-        <EditField label="Province" value={value.province} onChange={(v) => setField("province", v)} />
         <EditField label="ZIP Code" value={value.zipCode} onChange={(v) => setField("zipCode", v)} />
         <EditField label="RDO Code" value={value.rdoCode} onChange={(v) => setField("rdoCode", v)} />
         <label className="col-span-2 flex flex-col gap-1">
@@ -342,10 +326,8 @@ export default function ApplicationDetail({ id }: Props) {
         tin: next.tin,
         mobile: next.mobile,
         email: next.email,
-        addrStreet: next.addrStreet,
-        addrBarangay: next.addrBarangay,
+        fullAddress: next.fullAddress,
         addrCity: next.addrCity,
-        province: next.province,
         zipCode: next.zipCode,
         rdoCode: next.rdoCode,
       });
@@ -521,7 +503,7 @@ export default function ApplicationDetail({ id }: Props) {
             rows={[
               {
                 label: "Local Address",
-                value: [tp?.addrStreet, tp?.addrBarangay, tp?.addrCity]
+                value: [tp?.fullAddress, tp?.addrCity]
                   .filter(Boolean)
                   .join(", "),
               },

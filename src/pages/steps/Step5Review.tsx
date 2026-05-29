@@ -8,19 +8,43 @@ import { useWizard, type StepProps, type WizardState } from "../../lib/wizard";
 import { api } from "../../lib/api";
 import { cn } from "../../lib/utils";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers
 
 function toIso(dateStr: string) {
   return dateStr ? new Date(dateStr + "T00:00:00.000Z").toISOString() : "";
 }
 
-function daysSince(dateStr: string) {
-  if (!dateStr) return 0;
-  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000);
-}
-
 function buildPayload(state: WizardState, status: "draft" | "submitted") {
   const employer = state.employers[0];
+  const spouseEmployer =
+    state.civilStatus === "married" && (state.spouseEmployerTin || state.spouseEmployerFullName)
+      ? {
+          employerTin: state.spouseEmployerTin,
+          employerFullName: state.spouseEmployerFullName,
+          employerFullAddress: "",
+          empLandline: undefined,
+          munCode: undefined,
+          employerZipCode: undefined,
+          registeringOfficeType: "head" as const,
+          employmentType: "spouse" as const,
+          hireDate: "",
+        }
+      : undefined;
+  const employers = [
+    ...state.employers.map((e) => ({
+      employerTin: e.employerTin,
+      employerFullName: e.employerFullName,
+      employerFullAddress: e.employerFullAddress,
+      empLandline: e.empLandline || undefined,
+      munCode: e.munCode || undefined,
+      employerZipCode: e.employerZipCode || undefined,
+      registeringOfficeType: e.registeringOfficeType,
+      employmentType: e.employmentType,
+      hireDate: toIso(e.hireDate),
+    })),
+    ...(spouseEmployer ? [spouseEmployer] : []),
+  ];
+
   return {
     taxpayer: {
       tin: state.tin,
@@ -37,9 +61,7 @@ function buildPayload(state: WizardState, status: "draft" | "submitted") {
       otherCitizenship: state.otherCitizenship || undefined,
       motherFullName: state.motherFullName,
       fatherFullName: state.fatherFullName,
-      addrStreet: state.addrStreet,
-      addrBarangay: state.addrBarangay || undefined,
-      addrTownDistrict: state.addrTownDistrict || undefined,
+      fullAddress: state.fullAddress,
       addrCity: state.addrCity,
       foreignAddress: state.foreignAddress || undefined,
       munCode: state.munCode || undefined,
@@ -68,16 +90,7 @@ function buildPayload(state: WizardState, status: "draft" | "submitted") {
             exemptionClaimant: (state.exemptionClaimant || "husband") as "husband" | "wife",
           }
         : undefined,
-    employers: state.employers.map((e) => ({
-      employerTin: e.employerTin,
-      employerFullName: e.employerFullName,
-      employerFullAddress: e.employerFullAddress,
-      empLandline: e.empLandline || undefined,
-      munCode: e.munCode || undefined,
-      registeringOfficeType: e.registeringOfficeType,
-      employmentType: e.employmentType,
-      hireDate: toIso(e.hireDate),
-    })),
+    employers,
     dependents: state.dependents.map((d) => ({
       fullName: d.fullName,
       dateOfBirth: toIso(d.dateOfBirth),
@@ -90,7 +103,7 @@ function buildPayload(state: WizardState, status: "draft" | "submitted") {
   };
 }
 
-// ── Summary helpers ────────────────────────────────────────────────────────────
+// ── Summary helpers
 
 function SummaryCard({
   title,
@@ -127,7 +140,7 @@ function SummaryCard({
   );
 }
 
-// ── Validation ────────────────────────────────────────────────────────────────
+// ── Validation
 
 function computeChecks(state: WizardState) {
   const employer = state.employers[0];
@@ -137,14 +150,12 @@ function computeChecks(state: WizardState) {
     {
       label: "All required fields filled",
       pass:
-        !!state.tin &&
         !!state.lastName &&
         !!state.firstName &&
         !!state.gender &&
         !!state.civilStatus &&
         !!state.dateOfBirth &&
-        !!state.addrStreet &&
-        !!state.addrBarangay &&
+        !!state.fullAddress &&
         !!state.addrCity &&
         !!state.mobile &&
         !!state.email &&
@@ -164,20 +175,16 @@ function computeChecks(state: WizardState) {
         state.idExpiry >= state.idEffectivity,
     },
     {
-      label: "Filed within 10-day window of hire date",
-      pass: !employer?.hireDate || daysSince(employer.hireDate) <= 10,
-    },
-    {
-      label: "Tax type, Form, ATC locked to 1902 defaults",
+      label: "Tax type, Form, ATC locked to defaults",
       pass:
-        state.taxType === "Compensation" &&
-        state.formType === "1902" &&
-        state.atc === "QC",
+        state.taxType === "Income Tax" &&
+        state.formType === "1700" &&
+        state.atc === "II 011",
     },
   ];
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── Component
 
 interface Props extends StepProps {
   onGoTo?: (step: number) => void;
@@ -277,7 +284,7 @@ export default function Step5Review({ onBack, clearWizard, onGoTo }: Props) {
             rows={[
               {
                 label: "Local Address",
-                value: [state.addrStreet, state.addrBarangay, state.addrCity, state.province]
+                value: [state.fullAddress, state.addrCity]
                   .filter(Boolean)
                   .join(", "),
               },
@@ -310,6 +317,8 @@ export default function Step5Review({ onBack, clearWizard, onGoTo }: Props) {
                     { label: "Name", value: state.spouseFullName },
                     { label: "TIN", value: state.spouseTin },
                     { label: "Employment", value: state.spouseEmployment },
+                    { label: "Employer TIN", value: state.spouseEmployerTin },
+                    { label: "Employer Name", value: state.spouseEmployerFullName },
                     { label: "Exemption Claimant", value: state.exemptionClaimant },
                   ]
             }

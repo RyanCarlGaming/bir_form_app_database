@@ -6,8 +6,9 @@ export interface EmployerInput {
   employerFullAddress: string;
   empLandline: string;
   munCode: string;
+  employerZipCode: string;
   registeringOfficeType: "head" | "branch" | "rdo" | "ltdo";
-  employmentType: "primary" | "concurrent" | "successive";
+  employmentType: "primary" | "concurrent" | "successive" | "spouse";
   hireDate: string;
 }
 
@@ -37,6 +38,7 @@ export interface WizardState {
   motherFullName: string;
   fatherFullName: string;
   // Step 2 — Address & Contact
+  fullAddress: string;
   addrUnit: string;
   addrBuilding: string;
   addrLot: string;
@@ -65,6 +67,8 @@ export interface WizardState {
   spouseTin: string;
   spouseFullName: string;
   spouseEmployment: string;
+  spouseEmployerTin: string;
+  spouseEmployerFullName: string;
   exemptionClaimant: "husband" | "wife" | "";
   dependents: DependentInput[];
   idType: string;
@@ -81,15 +85,16 @@ export const WIZARD_DEFAULT: WizardState = {
   gender: "", civilStatus: "",
   dateOfBirth: "", placeOfBirth: "", citizenship: "", otherCitizenship: "",
   motherFullName: "", fatherFullName: "",
-  addrUnit: "", addrBuilding: "", addrLot: "", addrStreet: "",
+  fullAddress: "", addrUnit: "", addrBuilding: "", addrLot: "", addrStreet: "",
   addrSubdivision: "", addrBarangay: "", addrTownDistrict: "", addrCity: "",
   province: "", foreignAddress: "", foreignCountry: "", foreignPostalCode: "",
   munCode: "",
   landline: "", fax: "", mobile: "", email: "",
   employers: [],
-  taxType: "Compensation", formType: "1902", atc: "QC",
+  taxType: "Income Tax", formType: "1700", atc: "II 011",
   rdoCode: "", zipCode: "",
-  spouseTin: "", spouseFullName: "", spouseEmployment: "", exemptionClaimant: "",
+  spouseTin: "", spouseFullName: "", spouseEmployment: "",
+  spouseEmployerTin: "", spouseEmployerFullName: "", exemptionClaimant: "",
   dependents: [],
   idType: "", idNumber: "", idEffectivity: "", idExpiry: "", idIssuer: "", idPlace: "",
 };

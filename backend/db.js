@@ -108,6 +108,7 @@ async function createTables() {
       otherCitizenship TEXT,
       motherFullName TEXT NOT NULL,
       fatherFullName TEXT NOT NULL,
+      fullAddress TEXT,
       addrUnit TEXT,
       addrBuilding TEXT,
       addrLot TEXT,
@@ -162,6 +163,7 @@ async function createTables() {
       employerFullAddress TEXT NOT NULL,
       empLandline TEXT,
       munCode TEXT,
+      employerZipCode TEXT,
       registeringOfficeType TEXT NOT NULL,
       employmentType TEXT NOT NULL,
       hireDate TEXT NOT NULL,
@@ -230,6 +232,8 @@ async function createTables() {
   await ensureColumn('form_submissions', 'companyName', "TEXT NOT NULL DEFAULT 'Default Company'");
   await ensureColumn('office_profiles', 'companyName', "TEXT NOT NULL DEFAULT 'Default Company'");
   await ensureColumn('office_profiles', 'gender', "TEXT");
+  await ensureColumn('taxpayers', 'fullAddress', "TEXT");
+  await ensureColumn('employers', 'employerZipCode', "TEXT");
 
   const profile = await get('SELECT id FROM office_profiles WHERE id = 1');
   if (!profile) {
@@ -272,6 +276,24 @@ async function createTables() {
   await run('CREATE INDEX IF NOT EXISTS idx_forms_taxpayer ON form_submissions(taxpayerId)');
   await run('CREATE INDEX IF NOT EXISTS idx_forms_status ON form_submissions(status)');
   await run('CREATE INDEX IF NOT EXISTS idx_forms_company ON form_submissions(companyName)');
+
+  await run(`
+    DELETE FROM taxpayers
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM form_submissions
+      WHERE form_submissions.taxpayerId = taxpayers.id
+    )
+  `);
+
+  await run(`
+    DELETE FROM form_submissions
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM taxpayers
+      WHERE taxpayers.id = form_submissions.taxpayerId
+    )
+  `);
 }
 
 function setupDatabase(dbPath) {
@@ -362,6 +384,7 @@ async function insertTaxpayer(input) {
     otherCitizenship: optional(input.otherCitizenship),
     motherFullName: optional(input.motherFullName),
     fatherFullName: optional(input.fatherFullName),
+    fullAddress: optional(input.fullAddress),
     addrUnit: optional(input.addrUnit),
     addrBuilding: optional(input.addrBuilding),
     addrLot: optional(input.addrLot),
@@ -379,9 +402,9 @@ async function insertTaxpayer(input) {
     fax: optional(input.fax),
     mobile: optional(input.mobile),
     email: optional(input.email),
-    taxType: optional(input.taxType || 'Compensation'),
-    formType: optional(input.formType || '1902'),
-    atc: optional(input.atc || 'QC'),
+    taxType: optional(input.taxType || 'Income Tax'),
+    formType: optional(input.formType || '1700'),
+    atc: optional(input.atc || 'II 011'),
     idType: optional(input.idType),
     idNumber: optional(input.idNumber),
     idEffectivity: optional(input.idEffectivity),
@@ -424,8 +447,8 @@ async function insertEmployer(taxpayerId, input) {
   const result = await run(
     `INSERT INTO employers (
       taxpayerId, employerTin, employerFullName, employerFullAddress, empLandline,
-      munCode, registeringOfficeType, employmentType, hireDate
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      munCode, employerZipCode, registeringOfficeType, employmentType, hireDate
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       taxpayerId,
       optional(input.employerTin),
@@ -433,6 +456,7 @@ async function insertEmployer(taxpayerId, input) {
       optional(input.employerFullAddress),
       optional(input.empLandline),
       optional(input.munCode),
+      optional(input.employerZipCode),
       optional(input.registeringOfficeType || 'head'),
       optional(input.employmentType || 'primary'),
       optional(input.hireDate),
@@ -461,7 +485,7 @@ async function insertFormSubmission(taxpayerId, input = {}) {
   const companyName = optional(input.companyName || await currentCompanyName());
   const fields = {
     taxpayerId,
-    formType: optional(input.formType || '1902'),
+    formType: optional(input.formType || '1700'),
     taxableYear: optionalNumber(input.taxableYear ?? new Date().getFullYear()),
     taxablePeriod: optional(input.taxablePeriod),
     grossIncome: optionalNumber(input.grossIncome),
@@ -492,7 +516,16 @@ async function insertFormSubmission(taxpayerId, input = {}) {
 }
 
 export async function listTaxpayers() {
-  const rows = await all('SELECT * FROM taxpayers ORDER BY updatedAt DESC, id DESC');
+  const rows = await all(`
+    SELECT taxpayers.*
+    FROM taxpayers
+    WHERE EXISTS (
+      SELECT 1
+      FROM form_submissions
+      WHERE form_submissions.taxpayerId = taxpayers.id
+    )
+    ORDER BY taxpayers.updatedAt DESC, taxpayers.id DESC
+  `);
   return Promise.all(rows.map((row) => hydrateTaxpayer(row)));
 }
 
@@ -510,7 +543,7 @@ export async function updateTaxpayer(id, input) {
   const allowed = [
     'tin', 'birRegDate', 'pcn', 'taxpayerType', 'fullName', 'gender', 'civilStatus',
     'dateOfBirth', 'placeOfBirth', 'citizenship', 'otherCitizenship', 'motherFullName',
-    'fatherFullName', 'addrUnit', 'addrBuilding', 'addrLot', 'addrStreet',
+    'fatherFullName', 'fullAddress', 'addrUnit', 'addrBuilding', 'addrLot', 'addrStreet',
     'addrSubdivision', 'addrBarangay', 'addrTownDistrict', 'addrCity', 'province',
     'foreignAddress', 'foreignCountry', 'foreignPostalCode', 'munCode', 'landline',
     'fax', 'mobile', 'email', 'taxType', 'formType', 'atc', 'idType', 'idNumber',
@@ -611,8 +644,21 @@ export async function updateForm(id, input) {
 }
 
 export async function deleteForm(id) {
-  const result = await run('DELETE FROM form_submissions WHERE id = ?', [id]);
-  return result.changes > 0;
+  await run('BEGIN TRANSACTION');
+  try {
+    const form = await get('SELECT taxpayerId FROM form_submissions WHERE id = ?', [id]);
+    if (!form) {
+      await run('ROLLBACK');
+      return false;
+    }
+
+    const result = await run('DELETE FROM taxpayers WHERE id = ?', [form.taxpayerId]);
+    await run('COMMIT');
+    return result.changes > 0;
+  } catch (err) {
+    await run('ROLLBACK').catch(() => {});
+    throw err;
+  }
 }
 
 export async function getProfile() {

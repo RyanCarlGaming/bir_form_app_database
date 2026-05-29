@@ -23,15 +23,8 @@ export const step1Schema = z.object({
 export type Step1Values = z.infer<typeof step1Schema>;
 
 export const step2Schema = z.object({
-  addrUnit:         z.string(),
-  addrBuilding:     z.string(),
-  addrLot:          z.string(),
-  addrStreet:       z.string().min(1, "Street name required"),
-  addrSubdivision:  z.string(),
-  addrBarangay:     z.string().min(1, "Barangay required"),
-  addrTownDistrict: z.string(),
+  fullAddress:      z.string().min(1, "Full address required"),
   addrCity:         z.string().min(1, "Municipality / City required"),
-  province:         z.string().min(1, "Province required"),
   zipCode:          z.string().min(1, "ZIP code required"),
   munCode:          z.string(),
   rdoCode:          z.string(),
@@ -51,8 +44,9 @@ const employerSchema = z.object({
   employerFullAddress: z.string().min(1, "Employer address required"),
   empLandline: z.string(),
   munCode: z.string(),
+  employerZipCode: z.string().min(1, "Employer ZIP code required"),
   registeringOfficeType: z.enum(["head", "branch", "rdo", "ltdo"]),
-  employmentType: z.enum(["primary", "concurrent", "successive"]),
+  employmentType: z.enum(["primary", "concurrent", "successive", "spouse"]),
   hireDate: z.string().min(1, "Hire date required"),
 });
 
@@ -60,7 +54,7 @@ export const step3Schema = z.object({
   taxType: z.string().min(1, "Required"),
   formType: z.string().min(1, "Required"),
   atc: z.string().min(1, "Required"),
-  employers: z.array(employerSchema).min(1, "At least one employer required"),
+  employers: z.array(employerSchema).min(1, "Primary employer required").max(2, "Only one additional employer is allowed"),
 });
 export type Step3Values = z.infer<typeof step3Schema>;
 
@@ -75,6 +69,8 @@ export const step4Schema = z
     spouseTin: z.string(),
     spouseFullName: z.string(),
     spouseEmployment: z.string(),
+    spouseEmployerTin: z.string(),
+    spouseEmployerFullName: z.string(),
     exemptionClaimant: z.enum(["husband", "wife", ""]),
     dependents: z.array(dependentSchema),
     idType: z.string().min(1, "ID type required"),

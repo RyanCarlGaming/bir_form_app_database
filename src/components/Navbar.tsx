@@ -177,12 +177,9 @@ export default function Navbar() {
 
             <div className="leading-tight min-w-0">
               <div className="font-bold text-gray-900 dark:text-white text-[15px]">
-                BIR Online
+                BIR Online Registration
               </div>
 
-              <div className="font-bold text-gray-900 dark:text-white text-[15px] hidden xs:block">
-                Registration
-              </div>
             </div>
           </div>
 

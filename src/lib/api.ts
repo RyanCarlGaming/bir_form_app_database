@@ -8,6 +8,7 @@ export interface Taxpayer {
   dateOfBirth: string; placeOfBirth: string;
   citizenship: string; otherCitizenship?: string;
   motherFullName: string; fatherFullName: string;
+  fullAddress?: string;
   addrUnit?: string; addrBuilding?: string; addrLot?: string;
   addrStreet: string; addrSubdivision?: string;
   addrBarangay: string; addrTownDistrict?: string; addrCity: string;
@@ -33,9 +34,9 @@ export interface Spouse {
 export interface Employer {
   id: number; taxpayerId: number;
   employerTin: string; employerFullName: string;
-  employerFullAddress: string; empLandline?: string; munCode?: string;
+  employerFullAddress: string; empLandline?: string; munCode?: string; employerZipCode?: string;
   registeringOfficeType: "head" | "branch" | "rdo" | "ltdo";
-  employmentType: "primary" | "concurrent" | "successive";
+  employmentType: "primary" | "concurrent" | "successive" | "spouse";
   hireDate: string;
 }
 
