@@ -4,7 +4,7 @@ A full-stack BIR taxpayer registration and application management system. The ap
 
 ## Features
 
-- Taxpayer registration wizard for BIR Form 1700 employee registration
+- Taxpayer registration wizard for BIR Form 1902 employee registration
 - Normalized SQLite database using taxpayer, location, employer, spouse, dependents, and employee relationship tables
 - Taxpayer Registry with search, filters, status pills, and edit/view flow
 - Application queue, verification status, issued TIN records, reports, and dashboard statistics
