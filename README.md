@@ -1,62 +1,146 @@
-# BIR Form Management System
+# BIR Online Registration
 
-A modern, full-stack web application for BIR (Bureau of Internal Revenue) Form registration and management with SQLite database backend.
+A full-stack BIR taxpayer registration and application management system. The app replaces paper-based employee TIN registration with a searchable web portal, a normalized SQLite database, application review screens, taxpayer registry records, dashboards, reports, and account/profile management.
 
 ## Features
 
-✓ **Modern Dashboard** - Clean, responsive UI with gradient design
-✓ **Business Registration Form** - Comprehensive form with validation
-✓ **SQLite Database** - Persistent local database storage
-✓ **Express.js Backend** - RESTful API for data operations
-✓ **Real-time Statistics** - Track registrations, active and pending counts
-✓ **Search & Filter** - Search by registration number, business name, or TIN
-✓ **Data Management** - Create, read, update, and delete registrations
-✓ **Responsive Design** - Works on desktop, tablet, and mobile devices
+- Taxpayer registration wizard for BIR Form 1700 employee registration
+- Normalized SQLite database using taxpayer, location, employer, spouse, dependents, and employee relationship tables
+- Taxpayer Registry with search, filters, status pills, and edit/view flow
+- Application queue, verification status, issued TIN records, reports, and dashboard statistics
+- Editable application detail page with status updates, remarks, delete, and print actions
+- Basic authentication/profile flow for office users
+- React frontend and Express REST API backend
 
 ## Tech Stack
 
-**Frontend:**
+Frontend:
 - React 19
 - Vite
-- Modern CSS3
+- TypeScript
+- Tailwind CSS
+- TanStack Query
+- Wouter
+- Lucide icons
 
-**Backend:**
+Backend:
 - Node.js
-- Express.js
+- Express
 - SQLite3
 
-## Installation
+Database:
+- SQLite database file: `backend/bir_forms.db`
+- Database module: `backend/db.js`
+- Auth/profile module: `backend/auth.js`
 
-1. **Navigate to project directory**
-   ```bash
-   cd bir_form_new_db
-   ```
+## Requirements
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+- Node.js
+- npm
 
-3. **Start the development environment**
-   ```bash
-   npm run dev
-   ```
+Install dependencies before running the project:
 
-   This will start both the frontend (port 5174) and backend (port 3001).
+```bash
+npm install
+```
+
+## How To Start
+
+Run the frontend and backend together:
+
+```bash
+npm run dev
+```
+
+This starts:
+
+- Frontend: `http://localhost:5173` or the next available Vite port
+- Backend API: `http://localhost:3001/api`
+
+If you only want the frontend:
+
+```bash
+npm run dev:frontend
+```
+
+If you only want the backend:
+
+```bash
+npm run dev:backend
+```
+
+## Build
+
+Create a production frontend build:
+
+```bash
+npm run build
+```
+
+Preview the production build:
+
+```bash
+npm run preview
+```
+
+Run linting:
+
+```bash
+npm run lint
+```
 
 ## Database
 
-- **SQLite** database automatically created at `backend/bir_forms.db`
-- Persistent storage of all registration data
-- Indexed columns for fast queries
+The app uses `backend/bir_forms.db`.
 
-## Usage
+The database is created automatically when the backend starts. The schema is initialized from `backend/db.js`.
 
-1. Open http://localhost:5174 in your browser
-2. Fill out the registration form on the "New Registration" tab
-3. Click "View Registrations" to see all registered businesses
-4. Search, filter, and manage registrations as needed
+Main tables:
+
+- `location`
+- `taxpayer`
+- `dependents`
+- `employer`
+- `spouse`
+- `employee_relationship`
+- `form_submissions`
+
+Deleting an application also deletes the taxpayer record and related normalized rows when that taxpayer has no other remaining forms.
+
+## Common Workflow
+
+1. Start the app with `npm run dev`.
+2. Open the frontend URL shown by Vite, usually `http://localhost:5173`.
+3. Sign in or create an account.
+4. Create a new application from the registration wizard.
+5. Review applications in the queue or registry.
+6. Use Taxpayer Registry `View ->` to open/edit the taxpayer application.
+7. Mark applications as draft, submitted, or filed.
+8. Delete an application when it should also be removed from the registry.
+
+## Troubleshooting
+
+If the backend says port `3001` is already in use, another backend server is still running. Stop the old process, then run:
+
+```bash
+npm run dev:backend
+```
+
+If the frontend does not show the latest changes, restart `npm run dev` and refresh the browser.
+
+If you need a fresh local database, stop the backend first, then remove or rename `backend/bir_forms.db`. The backend will create a new database the next time it starts.
+
+## Project Scripts
+
+```bash
+npm run dev
+npm run dev:frontend
+npm run dev:backend
+npm run build
+npm run preview
+npm run lint
+```
 
 ## License
 
-© 2025 BIR Form Management System. All rights reserved.
+Private academic/project use.
