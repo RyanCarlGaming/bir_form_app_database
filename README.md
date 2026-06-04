@@ -41,7 +41,7 @@ Database:
 Install dependencies before running the project:
 
 ```bash
-npm install
+pnpm install
 ```
 
 ## How To Start
@@ -49,7 +49,7 @@ npm install
 Run the frontend and backend together:
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 This starts:
@@ -60,13 +60,13 @@ This starts:
 If you only want the frontend:
 
 ```bash
-npm run dev:frontend
+pnpm run dev:frontend
 ```
 
 If you only want the backend:
 
 ```bash
-npm run dev:backend
+pnpm run dev:backend
 ```
 
 ## Build
@@ -74,19 +74,19 @@ npm run dev:backend
 Create a production frontend build:
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 Preview the production build:
 
 ```bash
-npm run preview
+pnpm run preview
 ```
 
 Run linting:
 
 ```bash
-npm run lint
+pnpm run lint
 ```
 
 ## Database
@@ -123,7 +123,7 @@ Deleting an application also deletes the taxpayer record and related normalized 
 If the backend says port `3001` is already in use, another backend server is still running. Stop the old process, then run:
 
 ```bash
-npm run dev:backend
+pnpm run dev:backend
 ```
 
 If the frontend does not show the latest changes, restart `npm run dev` and refresh the browser.
@@ -133,12 +133,12 @@ If you need a fresh local database, stop the backend first, then remove or renam
 ## Project Scripts
 
 ```bash
-npm run dev
-npm run dev:frontend
-npm run dev:backend
-npm run build
-npm run preview
-npm run lint
+pnpm run dev
+pnpm run dev:frontend
+pnpm run dev:backend
+pnpm run build
+pnpm run preview
+pnpm run lint
 ```
 
 ## License
