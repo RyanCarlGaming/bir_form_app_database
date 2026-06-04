@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Users } from "lucide-react";
 import PageHeader from "../components/PageHeader";
@@ -33,9 +33,30 @@ export default function Registry() {
   const [rdoFilter, setRdoFilter] = useState("");
   const [civilFilter, setCivilFilter] = useState("");
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
 
   const { data: taxpayers, isLoading, isError, refetch } = useTaxpayers();
   const { data: stats } = useStats();
+  const viewMutation = useMutation({
+    mutationFn: async (tp: Taxpayer) => {
+      const formId = tp.formSubmissions?.[0]?.id;
+      if (formId) return formId;
+
+      const form = await api.forms.create({
+        taxpayerId: tp.id,
+        formType: tp.formType || "1700",
+        status: "draft",
+        companyName: tp.employers?.[0]?.employerFullName,
+      });
+      return form.id;
+    },
+    onSuccess(formId) {
+      queryClient.invalidateQueries({ queryKey: ["taxpayers"] });
+      queryClient.invalidateQueries({ queryKey: ["forms"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      navigate(`/applications/${formId}`);
+    },
+  });
 
   if (isLoading) return <RegistrySkeleton />;
   if (isError) return <ErrorCard message="Could not load registry." onRetry={refetch} />;
@@ -65,6 +86,10 @@ export default function Registry() {
     return latest?.status ?? ("draft" as const);
   }
 
+  function viewTaxpayer(tp: Taxpayer) {
+    if (!viewMutation.isPending) viewMutation.mutate(tp);
+  }
+
   return (
     <>
       <PageHeader
@@ -72,7 +97,6 @@ export default function Registry() {
         sub="All registered taxpayers and their TIN status."
       />
 
-      {/* KPI strip */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         {kpis.map(({ label, value }) => (
           <div key={label} className="rounded-xl border border-border bg-surface p-5">
@@ -82,7 +106,6 @@ export default function Registry() {
         ))}
       </div>
 
-      {/* Filter bar */}
       <div className="flex gap-3 mb-4">
         <select
           value={civilFilter}
@@ -108,12 +131,11 @@ export default function Registry() {
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name or TIN…"
+          placeholder="Search by name or TIN..."
           className="ml-auto h-9 px-3 rounded border border-border bg-surface text-text text-sm focus:outline-none focus:border-blue w-64"
         />
       </div>
 
-      {/* Table */}
       {filtered.length === 0 ? (
         <EmptyState
           icon={Users}
@@ -142,23 +164,30 @@ export default function Registry() {
                 return (
                   <tr
                     key={tp.id}
-                    onClick={() => {
-                      const formId = tp.formSubmissions?.[0]?.id;
-                      if (formId) navigate(`/applications/${formId}`);
-                    }}
+                    onClick={() => viewTaxpayer(tp)}
                     className="border-b border-border last:border-0 hover:bg-canvas cursor-pointer transition-colors"
                   >
                     <td className="px-6 py-3 font-mono text-xs text-muted">{tp.tin}</td>
                     <td className="px-6 py-3 font-medium text-text">{tp.fullName}</td>
-                    <td className="px-6 py-3 text-xs text-text-2">{employer?.employerFullName ?? "—"}</td>
+                    <td className="px-6 py-3 text-xs text-text-2">{employer?.employerFullName ?? "-"}</td>
                     <td className="px-6 py-3 text-xs text-muted capitalize">{tp.civilStatus}</td>
                     <td className="px-6 py-3 text-xs text-muted capitalize">{tp.taxpayerType}</td>
                     <td className="px-6 py-3 font-mono text-xs text-muted">{tp.rdoCode}</td>
                     <td className="px-6 py-3">
                       <StatusPill status={status} variant="registry" />
                     </td>
-                    <td className="px-6 py-3 text-right text-xs text-blue hover:underline">
-                      View →
+                    <td className="px-6 py-3 text-right">
+                      <button
+                        type="button"
+                        disabled={viewMutation.isPending}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          viewTaxpayer(tp);
+                        }}
+                        className="text-xs text-blue hover:underline disabled:opacity-50"
+                      >
+                        {viewMutation.isPending ? "Opening..." : "View ->"}
+                      </button>
                     </td>
                   </tr>
                 );

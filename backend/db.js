@@ -1,23 +1,16 @@
 import sqlite3 from 'sqlite3';
+import path from 'path';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const DEFAULT_DB_PATH = join(__dirname, 'bir_forms.db');
-let activeDbPath = process.env.DB_PATH ?? DEFAULT_DB_PATH;
-
-let db;
-
-function ensureDb() {
-  if (!db) throw new Error('Database has not been initialized');
-  return db;
-}
+const __dirname = path.dirname(__filename);
+const dbPath = path.join(__dirname, 'bir_forms.db');
+const sqlite = sqlite3.verbose();
+const db = new sqlite.Database(dbPath);
 
 function run(sql, params = []) {
-  const database = ensureDb();
   return new Promise((resolve, reject) => {
-    database.run(sql, params, function onRun(err) {
+    db.run(sql, params, function onRun(err) {
       if (err) reject(err);
       else resolve({ lastID: this.lastID, changes: this.changes });
     });
@@ -25,9 +18,8 @@ function run(sql, params = []) {
 }
 
 function get(sql, params = []) {
-  const database = ensureDb();
   return new Promise((resolve, reject) => {
-    database.get(sql, params, (err, row) => {
+    db.get(sql, params, (err, row) => {
       if (err) reject(err);
       else resolve(row);
     });
@@ -35,752 +27,733 @@ function get(sql, params = []) {
 }
 
 function all(sql, params = []) {
-  const database = ensureDb();
   return new Promise((resolve, reject) => {
-    database.all(sql, params, (err, rows) => {
+    db.all(sql, params, (err, rows) => {
       if (err) reject(err);
-      else resolve(rows ?? []);
+      else resolve(rows);
     });
   });
 }
 
-function nowIso() {
-  return new Date().toISOString();
+function close() {
+  return new Promise((resolve, reject) => {
+    db.close((err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
 }
 
-function optional(value) {
-  return value === undefined || value === null ? '' : value;
+const taxpayerTypeToDb = {
+  local: 'Local Employee',
+  resident: 'Resident Alien',
+  alien: 'Non-Resident Alien',
+};
+
+const taxpayerTypeFromDb = {
+  'Local Employee': 'local',
+  'Resident Alien': 'resident',
+  'Non-Resident Alien': 'alien',
+};
+
+const civilStatusToDb = {
+  single: 'Single',
+  married: 'Married',
+  widowed: 'Widow/er',
+  separated: 'Legally Separated',
+};
+
+const civilStatusFromDb = {
+  Single: 'single',
+  Married: 'married',
+  'Widow/er': 'widowed',
+  'Legally Separated': 'separated',
+  'With Qualified Dependent Child/ren': 'single',
+};
+
+const genderToDb = { male: 'Male', female: 'Female' };
+const genderFromDb = { Male: 'male', Female: 'female' };
+
+const empTypeToDb = {
+  primary: 'Primary',
+  concurrent: 'Concurrent',
+  successive: 'Successive',
+  spouse: 'Concurrent',
+};
+
+const empTypeFromDb = {
+  Primary: 'primary',
+  Concurrent: 'concurrent',
+  Successive: 'successive',
+};
+
+const spouseEmploymentToDb = {
+  unemployed: 'Unemployed',
+  local: 'Employed Locally',
+  abroad: 'Employed Abroad',
+  business: 'Engaged in Business/Practice of Profession',
+  '': 'Unemployed',
+};
+
+const spouseEmploymentFromDb = {
+  Unemployed: 'unemployed',
+  'Employed Locally': 'local',
+  'Employed Abroad': 'abroad',
+  'Engaged in Business/Practice of Profession': 'business',
+};
+
+const exemptionToDb = {
+  husband: 'Husband Claims',
+  wife: 'Wife Claims',
+};
+
+const exemptionFromDb = {
+  'Husband Claims': 'husband',
+  'Wife Claims': 'wife',
+};
+
+function valueOrNull(value) {
+  return value === undefined || value === '' ? null : value;
 }
 
-function optionalNumber(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
+function requiredText(value, fallback = 'N/A') {
+  return value === undefined || value === null || value === '' ? fallback : String(value);
 }
 
-async function hasColumn(tableName, columnName) {
-  const columns = await all(`PRAGMA table_info(${tableName})`);
-  return columns.some((column) => column.name === columnName);
+function fullAddressFromPayload(data) {
+  if (data.fullAddress) return data.fullAddress;
+  return [
+    data.addrUnit,
+    data.addrBuilding,
+    data.addrLot,
+    data.addrStreet,
+    data.addrSubdivision,
+    data.addrBarangay,
+    data.addrTownDistrict,
+    data.addrCity,
+  ].filter(Boolean).join(', ');
 }
 
-async function ensureColumn(tableName, columnName, definition) {
-  if (!(await hasColumn(tableName, columnName))) {
-    await run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
-  }
+async function ensureLocation({ munCode, mun, rdoCode, zipCode }) {
+  const code = requiredText(munCode, '000000000');
+  await run(
+    `INSERT INTO location (mun_code, mun, rdo_code, zip_code)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(mun_code) DO UPDATE SET
+       mun = COALESCE(excluded.mun, location.mun),
+       rdo_code = COALESCE(excluded.rdo_code, location.rdo_code),
+       zip_code = COALESCE(excluded.zip_code, location.zip_code)`,
+    [code, requiredText(mun, 'Unknown'), requiredText(rdoCode, '000'), requiredText(zipCode, '0000')],
+  );
+  return code;
 }
 
-function normalizeRdoCode(value) {
-  if (value === undefined || value === null || value === '') return '';
-  const text = String(value);
-  return /^\d+$/.test(text) ? text.padStart(3, '0') : text;
-}
-
-function formRow(row) {
+function mapTaxpayer(row, spouse, employers = [], dependents = [], formSubmissions = []) {
   if (!row) return null;
   return {
-    ...row,
-    formData: row.formData || undefined,
+    id: row.applicant_id,
+    tin: row.taxpayer_tin ?? '',
+    birRegDate: row.bir_reg_date ?? '',
+    pcn: row.pcn ?? '',
+    taxpayerType: taxpayerTypeFromDb[row.taxpayer_type] ?? row.taxpayer_type ?? 'local',
+    fullName: row.taxpayer_fullname,
+    gender: genderFromDb[row.gender] ?? row.gender,
+    civilStatus: civilStatusFromDb[row.civil_status] ?? row.civil_status,
+    dateOfBirth: row.date_of_birth,
+    placeOfBirth: row.place_of_birth,
+    citizenship: row.citizenship,
+    otherCitizenship: row.other_citizenship ?? '',
+    motherFullName: row.mother_fullname,
+    fatherFullName: row.father_fullname,
+    fullAddress: row.full_address,
+    addrStreet: row.full_address,
+    addrBarangay: '',
+    addrCity: row.mun ?? '',
+    foreignAddress: row.foreign_address ?? '',
+    munCode: row.mun_code,
+    landline: row.landline ?? '',
+    fax: row.fax ?? '',
+    mobile: row.mobile ?? '',
+    email: row.email ?? '',
+    taxType: row.tax_type,
+    formType: row.form_type,
+    atc: row.atc,
+    idType: row.id_type,
+    idNumber: row.id_number,
+    idEffectivity: row.id_effectivity,
+    idExpiry: row.id_expiry,
+    idIssuer: row.id_issuer,
+    idPlace: row.id_place,
+    rdoCode: row.rdo_code ?? '',
+    zipCode: row.zip_code ?? '',
+    createdAt: row.bir_reg_date ?? '',
+    updatedAt: row.bir_reg_date ?? '',
+    spouse,
+    employers,
+    dependents,
+    formSubmissions,
   };
 }
 
-function dependentRow(row) {
+function mapSpouse(row) {
+  if (!row) return undefined;
   return {
-    ...row,
-    isIncapacitated: Boolean(row.isIncapacitated),
+    id: row.applicant_id,
+    taxpayerId: row.applicant_id,
+    spouseTin: row.spouse_tin ?? '',
+    spouseFullName: row.spouse_fullname,
+    spouseEmployment: spouseEmploymentFromDb[row.spouse_employment_status] ?? row.spouse_employment_status,
+    exemptionClaimant: exemptionFromDb[row.exemption_claimant] ?? '',
+    spouseEmployerTin: row.spouse_emp_tin ?? '',
   };
 }
 
-async function createTables() {
-  await run('PRAGMA foreign_keys = ON');
-
-  await run(`
-    CREATE TABLE IF NOT EXISTS taxpayers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      tin TEXT NOT NULL,
-      birRegDate TEXT NOT NULL,
-      pcn TEXT,
-      taxpayerType TEXT NOT NULL,
-      fullName TEXT NOT NULL,
-      gender TEXT NOT NULL,
-      civilStatus TEXT NOT NULL,
-      dateOfBirth TEXT NOT NULL,
-      placeOfBirth TEXT NOT NULL,
-      citizenship TEXT NOT NULL,
-      otherCitizenship TEXT,
-      motherFullName TEXT NOT NULL,
-      fatherFullName TEXT NOT NULL,
-      fullAddress TEXT,
-      addrUnit TEXT,
-      addrBuilding TEXT,
-      addrLot TEXT,
-      addrStreet TEXT NOT NULL,
-      addrSubdivision TEXT,
-      addrBarangay TEXT,
-      addrTownDistrict TEXT,
-      addrCity TEXT NOT NULL,
-      province TEXT,
-      foreignAddress TEXT,
-      foreignCountry TEXT,
-      foreignPostalCode TEXT,
-      munCode TEXT,
-      landline TEXT,
-      fax TEXT,
-      mobile TEXT,
-      email TEXT,
-      taxType TEXT NOT NULL,
-      formType TEXT NOT NULL,
-      atc TEXT NOT NULL,
-      idType TEXT NOT NULL,
-      idNumber TEXT NOT NULL,
-      idEffectivity TEXT,
-      idExpiry TEXT,
-      idIssuer TEXT,
-      idPlace TEXT,
-      rdoCode TEXT,
-      zipCode TEXT,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
-    )
-  `);
-
-  await run(`
-    CREATE TABLE IF NOT EXISTS spouses (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      taxpayerId INTEGER NOT NULL,
-      spouseTin TEXT,
-      spouseFullName TEXT NOT NULL,
-      spouseEmployment TEXT,
-      exemptionClaimant TEXT NOT NULL,
-      FOREIGN KEY (taxpayerId) REFERENCES taxpayers(id) ON DELETE CASCADE
-    )
-  `);
-
-  await run(`
-    CREATE TABLE IF NOT EXISTS employers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      taxpayerId INTEGER NOT NULL,
-      employerTin TEXT NOT NULL,
-      employerFullName TEXT NOT NULL,
-      employerFullAddress TEXT NOT NULL,
-      empLandline TEXT,
-      munCode TEXT,
-      employerZipCode TEXT,
-      registeringOfficeType TEXT NOT NULL,
-      employmentType TEXT NOT NULL,
-      hireDate TEXT NOT NULL,
-      FOREIGN KEY (taxpayerId) REFERENCES taxpayers(id) ON DELETE CASCADE
-    )
-  `);
-
-  await run(`
-    CREATE TABLE IF NOT EXISTS dependents (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      taxpayerId INTEGER NOT NULL,
-      fullName TEXT NOT NULL,
-      dateOfBirth TEXT NOT NULL,
-      isIncapacitated INTEGER NOT NULL DEFAULT 0,
-      FOREIGN KEY (taxpayerId) REFERENCES taxpayers(id) ON DELETE CASCADE
-    )
-  `);
-
-  await run(`
-    CREATE TABLE IF NOT EXISTS form_submissions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      taxpayerId INTEGER NOT NULL,
-      formType TEXT NOT NULL,
-      taxableYear INTEGER,
-      taxablePeriod TEXT,
-      grossIncome REAL,
-      allowableDeductions REAL,
-      taxableIncome REAL,
-      taxDue REAL,
-      taxWithheld REAL,
-      taxPayable REAL,
-      penaltiesAndInterest REAL,
-      totalAmountDue REAL,
-      status TEXT NOT NULL DEFAULT 'draft',
-      companyName TEXT NOT NULL DEFAULT 'Default Company',
-      filedDate TEXT,
-      remarks TEXT,
-      formData TEXT,
-      createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL,
-      FOREIGN KEY (taxpayerId) REFERENCES taxpayers(id) ON DELETE CASCADE
-    )
-  `);
-
-  await run(`
-    CREATE TABLE IF NOT EXISTS office_profiles (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
-      officerName TEXT NOT NULL,
-      companyName TEXT NOT NULL DEFAULT 'Default Company',
-      role TEXT NOT NULL,
-      region TEXT NOT NULL,
-      office TEXT NOT NULL,
-      gender TEXT,
-      phone TEXT,
-      email TEXT,
-      street TEXT,
-      barangay TEXT,
-      city TEXT,
-      province TEXT,
-      zipCode TEXT,
-      photoDataUrl TEXT,
-      updatedAt TEXT NOT NULL
-    )
-  `);
-
-  await ensureColumn('form_submissions', 'companyName', "TEXT NOT NULL DEFAULT 'Default Company'");
-  await ensureColumn('office_profiles', 'companyName', "TEXT NOT NULL DEFAULT 'Default Company'");
-  await ensureColumn('office_profiles', 'gender', "TEXT");
-  await ensureColumn('taxpayers', 'fullAddress', "TEXT");
-  await ensureColumn('employers', 'employerZipCode', "TEXT");
-
-  const profile = await get('SELECT id FROM office_profiles WHERE id = 1');
-  if (!profile) {
-    await run(
-      `INSERT INTO office_profiles (
-        id, officerName, companyName, role, region, office, phone, email, street, barangay,
-        city, province, zipCode, gender, photoDataUrl, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        1,
-        'Daniel Flor',
-        'Default Company',
-        'Revenue Officer',
-        'Revenue Region No. 7',
-        'Quezon City',
-        '',
-        'daniel.flor@bir.gov.ph',
-        '',
-        '',
-        'Quezon City',
-        'Metro Manila',
-        '',
-        '',
-        '',
-        nowIso(),
-      ],
-    );
-  }
-
-  const currentProfile = await getProfile();
-  await run(
-    `UPDATE form_submissions
-     SET companyName = ?
-     WHERE companyName IS NULL OR companyName = ''`,
-    [currentProfile?.companyName || 'Default Company'],
-  );
-
-  await run('CREATE INDEX IF NOT EXISTS idx_taxpayers_tin ON taxpayers(tin)');
-  await run('CREATE INDEX IF NOT EXISTS idx_taxpayers_rdo ON taxpayers(rdoCode)');
-  await run('CREATE INDEX IF NOT EXISTS idx_forms_taxpayer ON form_submissions(taxpayerId)');
-  await run('CREATE INDEX IF NOT EXISTS idx_forms_status ON form_submissions(status)');
-  await run('CREATE INDEX IF NOT EXISTS idx_forms_company ON form_submissions(companyName)');
-
-  await run(`
-    DELETE FROM taxpayers
-    WHERE NOT EXISTS (
-      SELECT 1
-      FROM form_submissions
-      WHERE form_submissions.taxpayerId = taxpayers.id
-    )
-  `);
-
-  await run(`
-    DELETE FROM form_submissions
-    WHERE NOT EXISTS (
-      SELECT 1
-      FROM taxpayers
-      WHERE taxpayers.id = form_submissions.taxpayerId
-    )
-  `);
+function mapEmployer(row) {
+  return {
+    id: row.emp_tin,
+    taxpayerId: row.applicant_id,
+    employerTin: row.emp_tin,
+    employerFullName: row.emp_fullname,
+    employerFullAddress: row.emp_full_address ?? '',
+    empLandline: row.emp_landline ?? '',
+    munCode: row.emp_mun_code ?? '',
+    employerZipCode: row.zip_code ?? '',
+    registeringOfficeType: row.registering_office_type ?? 'head',
+    employmentType: empTypeFromDb[row.emp_type] ?? 'primary',
+    hireDate: row.hire_date ?? '',
+  };
 }
 
-function setupDatabase(dbPath) {
-  return new Promise((resolve, reject) => {
-    db = new sqlite3.Database(dbPath, async (err) => {
-      if (err) {
-        reject(err);
-        return;
-      }
+function mapDependent(row) {
+  return {
+    id: row.dependent_id,
+    taxpayerId: row.applicant_id,
+    fullName: row.dependent_fullname,
+    dateOfBirth: row.dependent_dob,
+    isIncapacitated: row.is_incapacitated === 'Yes',
+  };
+}
 
-      try {
-        await createTables();
-        resolve(dbPath);
-      } catch (setupError) {
-        reject(setupError);
-      }
-    });
-  });
+function mapForm(row, taxpayer) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    taxpayerId: row.taxpayer_id,
+    formType: row.form_type,
+    taxableYear: row.taxable_year,
+    taxablePeriod: row.taxable_period,
+    grossIncome: row.gross_income,
+    allowableDeductions: row.allowable_deductions,
+    taxableIncome: row.taxable_income,
+    taxDue: row.tax_due,
+    taxWithheld: row.tax_withheld,
+    taxPayable: row.tax_payable,
+    penaltiesAndInterest: row.penalties_and_interest,
+    totalAmountDue: row.total_amount_due,
+    status: row.status,
+    companyName: row.company_name,
+    filedDate: row.filed_date,
+    remarks: row.remarks,
+    formData: row.form_data,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    taxpayer,
+  };
 }
 
 export async function initializeDatabase() {
-  try {
-    return await setupDatabase(activeDbPath);
-  } catch (err) {
-    if (err?.code !== 'SQLITE_CORRUPT' || process.env.DB_PATH) throw err;
+  await run('PRAGMA foreign_keys = ON');
 
-    await closeDatabase().catch(() => {});
-    activeDbPath = join(__dirname, 'bir_forms_dev.db');
-    console.warn(`Default database is corrupt. Falling back to ${activeDbPath}`);
-    return setupDatabase(activeDbPath);
-  }
+  await run(`CREATE TABLE IF NOT EXISTS location (
+    mun_code TEXT PRIMARY KEY,
+    mun TEXT NOT NULL,
+    rdo_code TEXT NOT NULL,
+    zip_code TEXT NOT NULL
+  )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS taxpayer (
+    applicant_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    taxpayer_tin TEXT NULL,
+    bir_reg_date TEXT DEFAULT CURRENT_DATE,
+    pcn TEXT NULL,
+    taxpayer_type TEXT NOT NULL,
+    taxpayer_fullname TEXT NOT NULL,
+    gender TEXT NOT NULL CHECK (gender IN ('Male', 'Female')),
+    civil_status TEXT NOT NULL CHECK (civil_status IN ('Single', 'Married', 'Widow/er', 'Legally Separated', 'With Qualified Dependent Child/ren')),
+    date_of_birth TEXT NOT NULL,
+    place_of_birth TEXT NOT NULL,
+    citizenship TEXT NOT NULL,
+    other_citizenship TEXT NULL,
+    mother_fullname TEXT NOT NULL,
+    father_fullname TEXT NOT NULL,
+    full_address TEXT NOT NULL,
+    foreign_address TEXT NULL,
+    mun_code TEXT NOT NULL,
+    landline TEXT NULL,
+    fax TEXT NULL,
+    mobile TEXT NULL,
+    email TEXT NOT NULL,
+    tax_type TEXT NOT NULL DEFAULT 'Income Tax',
+    form_type TEXT NOT NULL DEFAULT '1700',
+    atc TEXT NOT NULL DEFAULT 'II011',
+    id_type TEXT NOT NULL,
+    id_number TEXT NOT NULL UNIQUE,
+    id_effectivity TEXT NOT NULL,
+    id_expiry TEXT NOT NULL,
+    id_issuer TEXT NOT NULL,
+    id_place TEXT NOT NULL,
+    FOREIGN KEY (mun_code) REFERENCES location(mun_code)
+  )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS dependents (
+    dependent_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    applicant_id INTEGER NOT NULL,
+    dependent_fullname TEXT NOT NULL,
+    dependent_dob TEXT NOT NULL,
+    is_incapacitated TEXT NOT NULL CHECK (is_incapacitated IN ('Yes', 'No')),
+    FOREIGN KEY (applicant_id) REFERENCES taxpayer(applicant_id)
+  )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS employer (
+    emp_tin TEXT PRIMARY KEY,
+    emp_fullname TEXT NOT NULL,
+    emp_full_address TEXT NULL,
+    emp_landline TEXT NULL,
+    emp_mun_code TEXT NULL,
+    registering_office_type TEXT NULL,
+    FOREIGN KEY (emp_mun_code) REFERENCES location(mun_code)
+  )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS spouse (
+    applicant_id INTEGER PRIMARY KEY,
+    spouse_fullname TEXT NOT NULL,
+    spouse_employment_status TEXT NOT NULL CHECK (spouse_employment_status IN ('Unemployed', 'Employed Locally', 'Employed Abroad', 'Engaged in Business/Practice of Profession')),
+    exemption_claimant TEXT NULL CHECK (exemption_claimant IN ('Husband Claims', 'Wife Claims')),
+    spouse_emp_tin TEXT NULL,
+    spouse_tin TEXT NULL,
+    FOREIGN KEY (applicant_id) REFERENCES taxpayer(applicant_id),
+    FOREIGN KEY (spouse_emp_tin) REFERENCES employer(emp_tin)
+  )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS employee_relationship (
+    applicant_id INTEGER,
+    emp_tin TEXT,
+    emp_type TEXT NOT NULL CHECK (emp_type IN ('Primary', 'Concurrent', 'Successive')),
+    hire_date TEXT NOT NULL,
+    PRIMARY KEY (applicant_id, emp_tin),
+    FOREIGN KEY (applicant_id) REFERENCES taxpayer(applicant_id),
+    FOREIGN KEY (emp_tin) REFERENCES employer(emp_tin)
+  )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS form_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    taxpayer_id INTEGER NOT NULL,
+    form_type TEXT NOT NULL DEFAULT '1700',
+    taxable_year INTEGER,
+    taxable_period TEXT,
+    gross_income REAL DEFAULT 0,
+    allowable_deductions REAL DEFAULT 0,
+    taxable_income REAL DEFAULT 0,
+    tax_due REAL DEFAULT 0,
+    tax_withheld REAL DEFAULT 0,
+    tax_payable REAL DEFAULT 0,
+    penalties_and_interest REAL DEFAULT 0,
+    total_amount_due REAL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'submitted',
+    company_name TEXT,
+    filed_date TEXT,
+    remarks TEXT,
+    form_data TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (taxpayer_id) REFERENCES taxpayer(applicant_id)
+  )`);
+
+  return dbPath;
 }
 
-async function hydrateTaxpayer(row, includeForms = true) {
+async function loadTaxpayerRelations(id) {
+  const spouse = mapSpouse(await get('SELECT * FROM spouse WHERE applicant_id = ?', [id]));
+  const employers = (await all(`
+    SELECT er.applicant_id, er.emp_type, er.hire_date, e.*, l.zip_code
+    FROM employee_relationship er
+    JOIN employer e ON e.emp_tin = er.emp_tin
+    LEFT JOIN location l ON l.mun_code = e.emp_mun_code
+    WHERE er.applicant_id = ?
+    ORDER BY CASE er.emp_type WHEN 'Primary' THEN 0 WHEN 'Concurrent' THEN 1 ELSE 2 END
+  `, [id])).map(mapEmployer);
+  const dependents = (await all('SELECT * FROM dependents WHERE applicant_id = ?', [id])).map(mapDependent);
+  const formRows = await all(
+    'SELECT * FROM form_submissions WHERE taxpayer_id = ? ORDER BY updated_at DESC, id DESC',
+    [id],
+  );
+  const formSubmissions = formRows.map((row) => mapForm(row));
+  return { spouse, employers, dependents, formSubmissions };
+}
+
+export async function getTaxpayerById(id) {
+  const row = await get(`
+    SELECT t.*, l.mun, l.rdo_code, l.zip_code
+    FROM taxpayer t
+    LEFT JOIN location l ON l.mun_code = t.mun_code
+    WHERE t.applicant_id = ?
+  `, [id]);
   if (!row) return null;
-
-  const [spouse, employers, dependents] = await Promise.all([
-    get('SELECT * FROM spouses WHERE taxpayerId = ?', [row.id]),
-    all('SELECT * FROM employers WHERE taxpayerId = ? ORDER BY id ASC', [row.id]),
-    all('SELECT * FROM dependents WHERE taxpayerId = ? ORDER BY id ASC', [row.id]),
-  ]);
-
-  const taxpayer = {
-    ...row,
-    spouse: spouse ?? undefined,
-    employers,
-    dependents: dependents.map(dependentRow),
-  };
-
-  if (includeForms) {
-    const forms = await all(
-      'SELECT * FROM form_submissions WHERE taxpayerId = ? ORDER BY updatedAt DESC, id DESC',
-      [row.id],
-    );
-    taxpayer.formSubmissions = forms.map(formRow);
-  }
-
-  return taxpayer;
-}
-
-async function hydrateForm(row) {
-  const form = formRow(row);
-  if (!form) return null;
-
-  const taxpayer = await get('SELECT * FROM taxpayers WHERE id = ?', [form.taxpayerId]);
-  form.taxpayer = await hydrateTaxpayer(taxpayer, false);
-  return form;
-}
-
-async function currentCompanyName() {
-  const profile = await getProfile();
-  return profile?.companyName || 'Default Company';
-}
-
-async function insertTaxpayer(input) {
-  const timestamp = nowIso();
-  const fields = {
-    tin: optional(input.tin),
-    birRegDate: optional(input.birRegDate),
-    pcn: optional(input.pcn),
-    taxpayerType: optional(input.taxpayerType || 'local'),
-    fullName: optional(input.fullName),
-    gender: optional(input.gender),
-    civilStatus: optional(input.civilStatus),
-    dateOfBirth: optional(input.dateOfBirth),
-    placeOfBirth: optional(input.placeOfBirth),
-    citizenship: optional(input.citizenship),
-    otherCitizenship: optional(input.otherCitizenship),
-    motherFullName: optional(input.motherFullName),
-    fatherFullName: optional(input.fatherFullName),
-    fullAddress: optional(input.fullAddress),
-    addrUnit: optional(input.addrUnit),
-    addrBuilding: optional(input.addrBuilding),
-    addrLot: optional(input.addrLot),
-    addrStreet: optional(input.addrStreet),
-    addrSubdivision: optional(input.addrSubdivision),
-    addrBarangay: optional(input.addrBarangay),
-    addrTownDistrict: optional(input.addrTownDistrict),
-    addrCity: optional(input.addrCity),
-    province: optional(input.province),
-    foreignAddress: optional(input.foreignAddress),
-    foreignCountry: optional(input.foreignCountry),
-    foreignPostalCode: optional(input.foreignPostalCode),
-    munCode: optional(input.munCode),
-    landline: optional(input.landline),
-    fax: optional(input.fax),
-    mobile: optional(input.mobile),
-    email: optional(input.email),
-    taxType: optional(input.taxType || 'Income Tax'),
-    formType: optional(input.formType || '1700'),
-    atc: optional(input.atc || 'II 011'),
-    idType: optional(input.idType),
-    idNumber: optional(input.idNumber),
-    idEffectivity: optional(input.idEffectivity),
-    idExpiry: optional(input.idExpiry),
-    idIssuer: optional(input.idIssuer),
-    idPlace: optional(input.idPlace),
-    rdoCode: normalizeRdoCode(input.rdoCode),
-    zipCode: optional(input.zipCode),
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  };
-
-  const columns = Object.keys(fields);
-  const placeholders = columns.map(() => '?').join(', ');
-  const result = await run(
-    `INSERT INTO taxpayers (${columns.join(', ')}) VALUES (${placeholders})`,
-    Object.values(fields),
+  const relations = await loadTaxpayerRelations(id);
+  return mapTaxpayer(
+    row,
+    relations.spouse,
+    relations.employers,
+    relations.dependents,
+    relations.formSubmissions,
   );
-
-  return result.lastID;
-}
-
-async function insertSpouse(taxpayerId, input) {
-  const result = await run(
-    `INSERT INTO spouses (
-      taxpayerId, spouseTin, spouseFullName, spouseEmployment, exemptionClaimant
-    ) VALUES (?, ?, ?, ?, ?)`,
-    [
-      taxpayerId,
-      optional(input.spouseTin),
-      optional(input.spouseFullName),
-      optional(input.spouseEmployment),
-      optional(input.exemptionClaimant || 'husband'),
-    ],
-  );
-  return result.lastID;
-}
-
-async function insertEmployer(taxpayerId, input) {
-  const result = await run(
-    `INSERT INTO employers (
-      taxpayerId, employerTin, employerFullName, employerFullAddress, empLandline,
-      munCode, employerZipCode, registeringOfficeType, employmentType, hireDate
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      taxpayerId,
-      optional(input.employerTin),
-      optional(input.employerFullName),
-      optional(input.employerFullAddress),
-      optional(input.empLandline),
-      optional(input.munCode),
-      optional(input.employerZipCode),
-      optional(input.registeringOfficeType || 'head'),
-      optional(input.employmentType || 'primary'),
-      optional(input.hireDate),
-    ],
-  );
-  return result.lastID;
-}
-
-async function insertDependent(taxpayerId, input) {
-  const result = await run(
-    `INSERT INTO dependents (
-      taxpayerId, fullName, dateOfBirth, isIncapacitated
-    ) VALUES (?, ?, ?, ?)`,
-    [
-      taxpayerId,
-      optional(input.fullName),
-      optional(input.dateOfBirth),
-      input.isIncapacitated ? 1 : 0,
-    ],
-  );
-  return result.lastID;
-}
-
-async function insertFormSubmission(taxpayerId, input = {}) {
-  const timestamp = nowIso();
-  const companyName = optional(input.companyName || await currentCompanyName());
-  const fields = {
-    taxpayerId,
-    formType: optional(input.formType || '1700'),
-    taxableYear: optionalNumber(input.taxableYear ?? new Date().getFullYear()),
-    taxablePeriod: optional(input.taxablePeriod),
-    grossIncome: optionalNumber(input.grossIncome),
-    allowableDeductions: optionalNumber(input.allowableDeductions),
-    taxableIncome: optionalNumber(input.taxableIncome),
-    taxDue: optionalNumber(input.taxDue),
-    taxWithheld: optionalNumber(input.taxWithheld),
-    taxPayable: optionalNumber(input.taxPayable),
-    penaltiesAndInterest: optionalNumber(input.penaltiesAndInterest),
-    totalAmountDue: optionalNumber(input.totalAmountDue),
-    status: optional(input.status || 'draft'),
-    companyName,
-    filedDate: optional(input.filedDate),
-    remarks: optional(input.remarks),
-    formData: typeof input.formData === 'string' ? input.formData : JSON.stringify(input.formData ?? input),
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  };
-
-  const columns = Object.keys(fields);
-  const placeholders = columns.map(() => '?').join(', ');
-  const result = await run(
-    `INSERT INTO form_submissions (${columns.join(', ')}) VALUES (${placeholders})`,
-    Object.values(fields),
-  );
-
-  return result.lastID;
 }
 
 export async function listTaxpayers() {
   const rows = await all(`
-    SELECT taxpayers.*
-    FROM taxpayers
-    WHERE EXISTS (
-      SELECT 1
-      FROM form_submissions
-      WHERE form_submissions.taxpayerId = taxpayers.id
-    )
-    ORDER BY taxpayers.updatedAt DESC, taxpayers.id DESC
+    SELECT t.*, l.mun, l.rdo_code, l.zip_code
+    FROM taxpayer t
+    LEFT JOIN location l ON l.mun_code = t.mun_code
+    ORDER BY t.applicant_id DESC
   `);
-  return Promise.all(rows.map((row) => hydrateTaxpayer(row)));
+  return Promise.all(rows.map(async (row) => {
+    const relations = await loadTaxpayerRelations(row.applicant_id);
+    return mapTaxpayer(
+      row,
+      relations.spouse,
+      relations.employers,
+      relations.dependents,
+      relations.formSubmissions,
+    );
+  }));
 }
 
-export async function getTaxpayerById(id) {
-  const row = await get('SELECT * FROM taxpayers WHERE id = ?', [id]);
-  return hydrateTaxpayer(row);
+export async function createTaxpayer(data) {
+  const munCode = await ensureLocation({
+    munCode: data.munCode,
+    mun: data.addrCity,
+    rdoCode: data.rdoCode,
+    zipCode: data.zipCode,
+  });
+  const result = await run(`
+    INSERT INTO taxpayer (
+      taxpayer_tin, bir_reg_date, pcn, taxpayer_type, taxpayer_fullname, gender, civil_status,
+      date_of_birth, place_of_birth, citizenship, other_citizenship, mother_fullname,
+      father_fullname, full_address, foreign_address, mun_code, landline, fax, mobile,
+      email, tax_type, form_type, atc, id_type, id_number, id_effectivity, id_expiry,
+      id_issuer, id_place
+    ) VALUES (?, COALESCE(?, CURRENT_DATE), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    valueOrNull(data.tin),
+    valueOrNull(data.birRegDate),
+    valueOrNull(data.pcn),
+    taxpayerTypeToDb[data.taxpayerType] ?? requiredText(data.taxpayerType, 'Local Employee'),
+    requiredText(data.fullName),
+    genderToDb[data.gender] ?? requiredText(data.gender, 'Male'),
+    civilStatusToDb[data.civilStatus] ?? requiredText(data.civilStatus, 'Single'),
+    requiredText(data.dateOfBirth),
+    requiredText(data.placeOfBirth),
+    requiredText(data.citizenship),
+    valueOrNull(data.otherCitizenship),
+    requiredText(data.motherFullName),
+    requiredText(data.fatherFullName),
+    requiredText(fullAddressFromPayload(data)),
+    valueOrNull(data.foreignAddress),
+    munCode,
+    valueOrNull(data.landline),
+    valueOrNull(data.fax),
+    valueOrNull(data.mobile),
+    requiredText(data.email),
+    requiredText(data.taxType, 'Income Tax'),
+    requiredText(data.formType, '1700'),
+    requiredText(data.atc, 'II011'),
+    requiredText(data.idType),
+    requiredText(data.idNumber, `ID-${Date.now()}`),
+    requiredText(data.idEffectivity),
+    requiredText(data.idExpiry),
+    requiredText(data.idIssuer),
+    requiredText(data.idPlace),
+  ]);
+  return getTaxpayerById(result.lastID);
 }
 
-export async function createTaxpayer(input) {
-  const id = await insertTaxpayer(input);
+export async function updateTaxpayer(id, data) {
+  const existing = await getTaxpayerById(id);
+  if (!existing) return null;
+  const next = { ...existing, ...data };
+  const munCode = await ensureLocation({
+    munCode: next.munCode,
+    mun: next.addrCity,
+    rdoCode: next.rdoCode,
+    zipCode: next.zipCode,
+  });
+  await run(`
+    UPDATE taxpayer SET
+      taxpayer_tin = ?, pcn = ?, taxpayer_type = ?, taxpayer_fullname = ?, gender = ?,
+      civil_status = ?, date_of_birth = ?, place_of_birth = ?, citizenship = ?,
+      other_citizenship = ?, mother_fullname = ?, father_fullname = ?, full_address = ?,
+      foreign_address = ?, mun_code = ?, landline = ?, fax = ?, mobile = ?, email = ?,
+      tax_type = ?, form_type = ?, atc = ?, id_type = ?, id_number = ?,
+      id_effectivity = ?, id_expiry = ?, id_issuer = ?, id_place = ?
+    WHERE applicant_id = ?
+  `, [
+    valueOrNull(next.tin),
+    valueOrNull(next.pcn),
+    taxpayerTypeToDb[next.taxpayerType] ?? next.taxpayerType,
+    requiredText(next.fullName),
+    genderToDb[next.gender] ?? next.gender,
+    civilStatusToDb[next.civilStatus] ?? next.civilStatus,
+    requiredText(next.dateOfBirth),
+    requiredText(next.placeOfBirth),
+    requiredText(next.citizenship),
+    valueOrNull(next.otherCitizenship),
+    requiredText(next.motherFullName),
+    requiredText(next.fatherFullName),
+    requiredText(fullAddressFromPayload(next)),
+    valueOrNull(next.foreignAddress),
+    munCode,
+    valueOrNull(next.landline),
+    valueOrNull(next.fax),
+    valueOrNull(next.mobile),
+    requiredText(next.email),
+    requiredText(next.taxType, 'Income Tax'),
+    requiredText(next.formType, '1700'),
+    requiredText(next.atc, 'II011'),
+    requiredText(next.idType),
+    requiredText(next.idNumber),
+    requiredText(next.idEffectivity),
+    requiredText(next.idExpiry),
+    requiredText(next.idIssuer),
+    requiredText(next.idPlace),
+    id,
+  ]);
   return getTaxpayerById(id);
 }
 
-export async function updateTaxpayer(id, input) {
-  const allowed = [
-    'tin', 'birRegDate', 'pcn', 'taxpayerType', 'fullName', 'gender', 'civilStatus',
-    'dateOfBirth', 'placeOfBirth', 'citizenship', 'otherCitizenship', 'motherFullName',
-    'fatherFullName', 'fullAddress', 'addrUnit', 'addrBuilding', 'addrLot', 'addrStreet',
-    'addrSubdivision', 'addrBarangay', 'addrTownDistrict', 'addrCity', 'province',
-    'foreignAddress', 'foreignCountry', 'foreignPostalCode', 'munCode', 'landline',
-    'fax', 'mobile', 'email', 'taxType', 'formType', 'atc', 'idType', 'idNumber',
-    'idEffectivity', 'idExpiry', 'idIssuer', 'idPlace', 'rdoCode', 'zipCode',
-  ];
-  const entries = allowed
-    .filter((key) => input[key] !== undefined)
-    .map((key) => [key, key === 'rdoCode' ? normalizeRdoCode(input[key]) : input[key]]);
-
-  if (entries.length === 0) return getTaxpayerById(id);
-
-  const assignments = entries.map(([key]) => `${key} = ?`).join(', ');
-  const values = entries.map(([, value]) => value);
-  values.push(nowIso(), id);
-
-  await run(`UPDATE taxpayers SET ${assignments}, updatedAt = ? WHERE id = ?`, values);
-  return getTaxpayerById(id);
+export async function createEmployer(taxpayerId, data) {
+  const munCode = data.munCode ? await ensureLocation({
+    munCode: data.munCode,
+    rdoCode: data.rdoCode,
+    zipCode: data.employerZipCode,
+  }) : null;
+  await run(`
+    INSERT INTO employer (emp_tin, emp_fullname, emp_full_address, emp_landline, emp_mun_code, registering_office_type)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(emp_tin) DO UPDATE SET
+      emp_fullname = excluded.emp_fullname,
+      emp_full_address = excluded.emp_full_address,
+      emp_landline = excluded.emp_landline,
+      emp_mun_code = excluded.emp_mun_code,
+      registering_office_type = excluded.registering_office_type
+  `, [
+    requiredText(data.employerTin),
+    requiredText(data.employerFullName),
+    valueOrNull(data.employerFullAddress),
+    valueOrNull(data.empLandline),
+    munCode,
+    valueOrNull(data.registeringOfficeType),
+  ]);
+  await run(`
+    INSERT INTO employee_relationship (applicant_id, emp_tin, emp_type, hire_date)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(applicant_id, emp_tin) DO UPDATE SET emp_type = excluded.emp_type, hire_date = excluded.hire_date
+  `, [taxpayerId, requiredText(data.employerTin), empTypeToDb[data.employmentType] ?? 'Primary', requiredText(data.hireDate)]);
+  const employers = (await loadTaxpayerRelations(taxpayerId)).employers;
+  return employers.find((employer) => employer.employerTin === data.employerTin) ?? employers[0];
 }
 
-export async function createSpouse(taxpayerId, input) {
-  await insertSpouse(taxpayerId, input);
-  return get('SELECT * FROM spouses WHERE taxpayerId = ? ORDER BY id DESC LIMIT 1', [taxpayerId]);
+export async function createSpouse(taxpayerId, data) {
+  await run(`
+    INSERT INTO spouse (
+      applicant_id, spouse_fullname, spouse_employment_status, exemption_claimant, spouse_emp_tin, spouse_tin
+    ) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(applicant_id) DO UPDATE SET
+      spouse_fullname = excluded.spouse_fullname,
+      spouse_employment_status = excluded.spouse_employment_status,
+      exemption_claimant = excluded.exemption_claimant,
+      spouse_emp_tin = excluded.spouse_emp_tin,
+      spouse_tin = excluded.spouse_tin
+  `, [
+    taxpayerId,
+    requiredText(data.spouseFullName),
+    spouseEmploymentToDb[data.spouseEmployment] ?? data.spouseEmployment ?? 'Unemployed',
+    exemptionToDb[data.exemptionClaimant] ?? null,
+    valueOrNull(data.spouseEmployerTin),
+    valueOrNull(data.spouseTin),
+  ]);
+  return mapSpouse(await get('SELECT * FROM spouse WHERE applicant_id = ?', [taxpayerId]));
 }
 
-export async function createEmployer(taxpayerId, input) {
-  const id = await insertEmployer(taxpayerId, input);
-  return get('SELECT * FROM employers WHERE id = ?', [id]);
+export async function createForm(data) {
+  const result = await run(`
+    INSERT INTO form_submissions (
+      taxpayer_id, form_type, taxable_year, taxable_period, gross_income, allowable_deductions,
+      taxable_income, tax_due, tax_withheld, tax_payable, penalties_and_interest,
+      total_amount_due, status, company_name, filed_date, remarks, form_data
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    data.taxpayerId,
+    requiredText(data.formType, '1700'),
+    valueOrNull(data.taxableYear),
+    valueOrNull(data.taxablePeriod),
+    data.grossIncome ?? 0,
+    data.allowableDeductions ?? 0,
+    data.taxableIncome ?? 0,
+    data.taxDue ?? 0,
+    data.taxWithheld ?? 0,
+    data.taxPayable ?? 0,
+    data.penaltiesAndInterest ?? 0,
+    data.totalAmountDue ?? 0,
+    data.status ?? 'submitted',
+    valueOrNull(data.companyName),
+    valueOrNull(data.filedDate),
+    valueOrNull(data.remarks),
+    data.formData ? JSON.stringify(data.formData) : null,
+  ]);
+  return getFormById(result.lastID);
+}
+
+export async function getFormById(id) {
+  const row = await get('SELECT * FROM form_submissions WHERE id = ?', [id]);
+  if (!row) return null;
+  return mapForm(row, await getTaxpayerById(row.taxpayer_id));
 }
 
 export async function listForms(filters = {}) {
   const clauses = [];
   const params = [];
-  const companyName = filters.companyName ?? await currentCompanyName();
-
-  if (filters.taxpayerId !== undefined) {
-    clauses.push('taxpayerId = ?');
+  if (filters.taxpayerId) {
+    clauses.push('taxpayer_id = ?');
     params.push(filters.taxpayerId);
   }
   if (filters.formType) {
-    clauses.push('formType = ?');
+    clauses.push('form_type = ?');
     params.push(filters.formType);
   }
   if (filters.status) {
     clauses.push('status = ?');
     params.push(filters.status);
   }
-  if (companyName) {
-    clauses.push('companyName = ?');
-    params.push(companyName);
-  }
-
-  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
-  const rows = await all(
-    `SELECT * FROM form_submissions ${where} ORDER BY updatedAt DESC, id DESC`,
-    params,
-  );
-  return Promise.all(rows.map((row) => hydrateForm(row)));
+  const rows = await all(`
+    SELECT * FROM form_submissions
+    ${clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''}
+    ORDER BY updated_at DESC
+  `, params);
+  return Promise.all(rows.map(async (row) => mapForm(row, await getTaxpayerById(row.taxpayer_id))));
 }
 
-export async function getFormById(id) {
-  const row = await get('SELECT * FROM form_submissions WHERE id = ?', [id]);
-  return hydrateForm(row);
-}
-
-export async function createForm(input) {
-  if (input.taxpayer) {
-    const result = await createApplication({
-      taxpayer: input.taxpayer,
-      spouse: input.spouse,
-      employers: input.employers,
-      dependents: input.dependents,
-      form: { ...(input.form ?? input), companyName: input.companyName },
-    });
-    return getFormById(result.formId);
-  }
-
-  const formId = await insertFormSubmission(input.taxpayerId, input);
-  return getFormById(formId);
-}
-
-export async function updateForm(id, input) {
-  const allowed = [
-    'formType', 'taxableYear', 'taxablePeriod', 'grossIncome', 'allowableDeductions',
-    'taxableIncome', 'taxDue', 'taxWithheld', 'taxPayable', 'penaltiesAndInterest',
-    'totalAmountDue', 'status', 'companyName', 'filedDate', 'remarks', 'formData',
-  ];
-  const entries = allowed.filter((key) => input[key] !== undefined).map((key) => [key, input[key]]);
-
-  if (entries.length === 0) return getFormById(id);
-
-  const assignments = entries.map(([key]) => `${key} = ?`).join(', ');
-  const values = entries.map(([, value]) => value);
-  values.push(nowIso(), id);
-
-  const result = await run(`UPDATE form_submissions SET ${assignments}, updatedAt = ? WHERE id = ?`, values);
-  if (result.changes === 0) return null;
+export async function updateForm(id, data) {
+  const existing = await getFormById(id);
+  if (!existing) return null;
+  const next = { ...existing, ...data };
+  await run(`
+    UPDATE form_submissions SET
+      form_type = ?, taxable_year = ?, taxable_period = ?, gross_income = ?,
+      allowable_deductions = ?, taxable_income = ?, tax_due = ?, tax_withheld = ?,
+      tax_payable = ?, penalties_and_interest = ?, total_amount_due = ?, status = ?,
+      company_name = ?, filed_date = ?, remarks = ?, form_data = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `, [
+    requiredText(next.formType, '1700'),
+    valueOrNull(next.taxableYear),
+    valueOrNull(next.taxablePeriod),
+    next.grossIncome ?? 0,
+    next.allowableDeductions ?? 0,
+    next.taxableIncome ?? 0,
+    next.taxDue ?? 0,
+    next.taxWithheld ?? 0,
+    next.taxPayable ?? 0,
+    next.penaltiesAndInterest ?? 0,
+    next.totalAmountDue ?? 0,
+    next.status ?? 'submitted',
+    valueOrNull(next.companyName),
+    valueOrNull(next.filedDate),
+    valueOrNull(next.remarks),
+    typeof next.formData === 'string' ? next.formData : JSON.stringify(next.formData ?? {}),
+    id,
+  ]);
   return getFormById(id);
 }
 
 export async function deleteForm(id) {
-  await run('BEGIN TRANSACTION');
-  try {
-    const form = await get('SELECT taxpayerId FROM form_submissions WHERE id = ?', [id]);
-    if (!form) {
-      await run('ROLLBACK');
-      return false;
-    }
+  const form = await get('SELECT taxpayer_id FROM form_submissions WHERE id = ?', [id]);
+  if (!form) return false;
 
-    const result = await run('DELETE FROM taxpayers WHERE id = ?', [form.taxpayerId]);
-    await run('COMMIT');
-    return result.changes > 0;
-  } catch (err) {
-    await run('ROLLBACK').catch(() => {});
-    throw err;
+  const result = await run('DELETE FROM form_submissions WHERE id = ?', [id]);
+  if (result.changes === 0) return false;
+
+  const remainingForms = await get(
+    'SELECT COUNT(*) AS total FROM form_submissions WHERE taxpayer_id = ?',
+    [form.taxpayer_id],
+  );
+
+  if ((remainingForms?.total ?? 0) === 0) {
+    await run('DELETE FROM spouse WHERE applicant_id = ?', [form.taxpayer_id]);
+    await run('DELETE FROM dependents WHERE applicant_id = ?', [form.taxpayer_id]);
+    await run('DELETE FROM employee_relationship WHERE applicant_id = ?', [form.taxpayer_id]);
+    await run('DELETE FROM taxpayer WHERE applicant_id = ?', [form.taxpayer_id]);
   }
-}
 
-export async function getProfile() {
-  return get('SELECT * FROM office_profiles WHERE id = 1');
-}
-
-export async function updateProfile(input) {
-  const allowed = [
-    'officerName', 'companyName', 'role', 'region', 'office', 'phone', 'email', 'street',
-    'barangay', 'city', 'province', 'zipCode', 'gender', 'photoDataUrl',
-  ];
-  const entries = allowed
-    .filter((key) => input[key] !== undefined)
-    .map((key) => [key, optional(input[key])]);
-
-  if (entries.length === 0) return getProfile();
-
-  const assignments = entries.map(([key]) => `${key} = ?`).join(', ');
-  const values = entries.map(([, value]) => value);
-  values.push(nowIso());
-
-  await run(`UPDATE office_profiles SET ${assignments}, updatedAt = ? WHERE id = 1`, values);
-  return getProfile();
-}
-
-export async function createApplication(input) {
-  await run('BEGIN TRANSACTION');
-  try {
-    const taxpayerId = await insertTaxpayer(input.taxpayer);
-
-    if (input.spouse) await insertSpouse(taxpayerId, input.spouse);
-
-    for (const employer of input.employers ?? []) {
-      await insertEmployer(taxpayerId, employer);
-    }
-
-    for (const dependent of input.dependents ?? []) {
-      await insertDependent(taxpayerId, dependent);
-    }
-
-    const formId = await insertFormSubmission(taxpayerId, input.form ?? {});
-    await run('COMMIT');
-    return { taxpayerId, formId };
-  } catch (err) {
-    await run('ROLLBACK').catch(() => {});
-    throw err;
-  }
+  return true;
 }
 
 export async function getStatsSummary() {
-  const companyName = await currentCompanyName();
-  const [totalRow, taxpayerRow, statusRows, typeRows, rdoRows, totalsRow] = await Promise.all([
-    get('SELECT COUNT(*) AS total FROM form_submissions WHERE companyName = ?', [companyName]),
-    get(`
-      SELECT COUNT(DISTINCT taxpayers.tin) AS totalTaxpayers
-      FROM taxpayers
-      INNER JOIN form_submissions ON form_submissions.taxpayerId = taxpayers.id
-      WHERE form_submissions.companyName = ?
-    `, [companyName]),
-    all('SELECT status, COUNT(*) AS total FROM form_submissions WHERE companyName = ? GROUP BY status', [companyName]),
-    all(`
-      SELECT taxpayers.taxpayerType, COUNT(DISTINCT taxpayers.id) AS total
-      FROM taxpayers
-      INNER JOIN form_submissions ON form_submissions.taxpayerId = taxpayers.id
-      WHERE form_submissions.companyName = ?
-      GROUP BY taxpayers.taxpayerType
-    `, [companyName]),
-    all(`
-      SELECT taxpayers.rdoCode, COUNT(DISTINCT taxpayers.id) AS total
-      FROM taxpayers
-      INNER JOIN form_submissions ON form_submissions.taxpayerId = taxpayers.id
-      WHERE form_submissions.companyName = ?
-        AND taxpayers.rdoCode IS NOT NULL
-        AND taxpayers.rdoCode != ''
-      GROUP BY taxpayers.rdoCode
-    `, [companyName]),
-    get(`
-      SELECT
-        COALESCE(SUM(taxDue), 0) AS totalTaxDue,
-        COALESCE(SUM(taxPayable), 0) AS totalTaxPayable
-      FROM form_submissions
-      WHERE companyName = ?
-    `, [companyName]),
-  ]);
-
-  const byStatus = { draft: 0, submitted: 0, filed: 0, amended: 0 };
-  for (const row of statusRows) {
-    byStatus[row.status] = row.total; 
-  }
-
-  const byType = {};
-  for (const row of typeRows) {
-    byType[row.taxpayerType || 'unknown'] = row.total;
-  }
-
-  const byRdo = {};
-  for (const row of rdoRows) {
-    byRdo[row.rdoCode] = row.total;
-  }
-
+  const forms = await all('SELECT * FROM form_submissions');
+  const taxpayers = await all(`
+    SELECT t.*, l.rdo_code
+    FROM taxpayer t
+    LEFT JOIN location l ON l.mun_code = t.mun_code
+  `);
   return {
-    total: totalRow.total,
-    totalTaxpayers: taxpayerRow.totalTaxpayers,
-    byStatus,
-    byType,
-    byRdo,
-    companyName,
-    totalTaxDue: totalsRow.totalTaxDue,
-    totalTaxPayable: totalsRow.totalTaxPayable,
+    total: forms.length,
+    totalTaxpayers: taxpayers.length,
+    byStatus: forms.reduce((acc, form) => ({ ...acc, [form.status]: (acc[form.status] ?? 0) + 1 }), {}),
+    byType: taxpayers.reduce((acc, taxpayer) => {
+      const type = taxpayerTypeFromDb[taxpayer.taxpayer_type] ?? taxpayer.taxpayer_type;
+      return { ...acc, [type]: (acc[type] ?? 0) + 1 };
+    }, {}),
+    byRdo: taxpayers.reduce((acc, taxpayer) => {
+      const rdo = taxpayer.rdo_code ?? '000';
+      return { ...acc, [rdo]: (acc[rdo] ?? 0) + 1 };
+    }, {}),
+    totalTaxDue: forms.reduce((sum, form) => sum + Number(form.tax_due ?? 0), 0),
+    totalTaxPayable: forms.reduce((sum, form) => sum + Number(form.tax_payable ?? 0), 0),
+    companyName: forms[0]?.company_name ?? '',
   };
 }
 
-export function closeDatabase() {
-  if (!db) return Promise.resolve();
-
-  return new Promise((resolve, reject) => {
-    db.close((err) => {
-      if (err) reject(err);
-      else {
-        db = undefined;
-        resolve();
-      }
-    });
+export async function createApplication(data) {
+  const taxpayer = await createTaxpayer(data.taxpayer ?? {});
+  for (const employer of data.employers ?? []) {
+    if (employer.employmentType !== 'spouse') {
+      await createEmployer(taxpayer.id, employer);
+    }
+  }
+  if (data.spouse) {
+    await createSpouse(taxpayer.id, data.spouse);
+  }
+  for (const dependent of data.dependents ?? []) {
+    await run(
+      `INSERT INTO dependents (applicant_id, dependent_fullname, dependent_dob, is_incapacitated)
+       VALUES (?, ?, ?, ?)`,
+      [
+        taxpayer.id,
+        requiredText(dependent.fullName),
+        requiredText(dependent.dateOfBirth),
+        dependent.isIncapacitated ? 'Yes' : 'No',
+      ],
+    );
+  }
+  const form = await createForm({
+    taxpayerId: taxpayer.id,
+    formType: data.taxpayer?.formType ?? '1700',
+    status: 'submitted',
+    companyName: data.employers?.[0]?.employerFullName,
+    formData: data,
   });
+  return { taxpayerId: taxpayer.id, formId: form.id };
+}
+
+export async function closeDatabase() {
+  return close();
 }
