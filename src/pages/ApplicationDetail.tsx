@@ -559,7 +559,7 @@ export default function ApplicationDetail({ id }: Props) {
   const busy = saveMutation.isPending || statusMutation.isPending || deleteMutation.isPending;
 
   function beginEdit() {
-    setEditState(makeEditState(form));
+    setEditState(makeEditState(form!));
     setEditing(true);
     setActionError("");
   }
