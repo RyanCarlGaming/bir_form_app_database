@@ -132,6 +132,7 @@ function initials(name: string) {
 
 export default function Navbar() {
   const [location] = useLocation();
+  const token = localStorage.getItem("token");
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -153,8 +154,9 @@ export default function Navbar() {
   }, [location]);
 
   const { data: profile } = useQuery({
-    queryKey: ["profile", localStorage.getItem("token")],
+    queryKey: ["profile", token],
     queryFn: api.profile.get,
+    enabled: Boolean(token),
   });
 
   const officerName = profile?.officerName ?? "Default User";

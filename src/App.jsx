@@ -18,17 +18,29 @@ import NotFound from "./pages/NotFound";
 
 function RequireAuth({ children }) {
   const [, navigate] = useLocation();
+  const token = localStorage.getItem("token");
+
   useEffect(() => {
-    if (!localStorage.getItem("authed")) navigate("/sign-in");
-  }, [navigate]);
-  if (!localStorage.getItem("authed")) return null;
+    if (!token) {
+      localStorage.removeItem("authed");
+      localStorage.removeItem("user");
+      navigate("/sign-in");
+    }
+  }, [navigate, token]);
+
+  if (!token) return null;
   return <>{children}</>;
 }
 
 function RootRoute() {
   const [, navigate] = useLocation();
     useEffect(() => {
-      navigate("/sign-in");
+      const token = localStorage.getItem("token");
+      if (token) {
+        navigate("/dashboard");
+      } else {
+        navigate("/sign-in");
+      }
     }, [navigate]);
     return null;
 }

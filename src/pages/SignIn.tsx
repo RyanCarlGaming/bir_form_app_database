@@ -72,37 +72,12 @@ export default function SignIn() {
         );
       }
 
-      if (isRegister) {
-        alert("Account created successfully!");
-
-        queryClient.clear();
-
-        localStorage.setItem(
-          "authed",
-          "1"
-        );
-
-        localStorage.setItem(
-          "token",
-          data.token
-        );
-
-        localStorage.setItem(
-          "user",
-          JSON.stringify(data.user)
-        );
-
-        navigate("/dashboard");
-
-        return;
-      }
+      queryClient.clear();
 
       localStorage.setItem(
         "authed",
         "1"
       );
-
-      queryClient.clear();
 
       localStorage.setItem(
         "token",
@@ -115,6 +90,8 @@ export default function SignIn() {
       );
 
       navigate("/dashboard");
+
+      return;
     } catch (err: any) {
       setError(err.message);
     } finally {

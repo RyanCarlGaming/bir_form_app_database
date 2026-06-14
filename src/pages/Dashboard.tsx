@@ -390,7 +390,7 @@ function AlertBanner() {
           </p>
           <div className="mt-2 rounded-md bg-white/60 border border-amber-100 px-3 py-2">
             <p className="text-xs text-amber-700">
-              <span className="font-semibold">Disclaimer:</span>{" "}
+              <span className="font-semibold">NOTE:</span>{" "}
               <span className="italic">
                 The data shown below is for demonstration purposes only.
               </span>
@@ -403,11 +403,13 @@ function AlertBanner() {
 }
 
 export default function Dashboard() {
+  const token = localStorage.getItem("token");
   const statsQ = useDashboardStats();
   const formsQ = useRecentForms();
   const profileQ = useQuery({
-    queryKey: ["profile", localStorage.getItem("token")],
-    queryFn: api.profile.get,
+    queryKey: ["profile", token],
+    queryFn: () => api.profile.get(),
+    enabled: Boolean(token),
   });
 
   if (statsQ.isLoading || formsQ.isLoading) return <DashboardSkeleton />;

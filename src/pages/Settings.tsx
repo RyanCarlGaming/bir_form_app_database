@@ -62,12 +62,14 @@ function ProfileField({ label, value, onChange }: { label: string; value: string
 
 export default function Settings() {
   const queryClient = useQueryClient();
+  const token = localStorage.getItem("token");
   const [form, setForm] = useState<ProfileForm | null>(null);
   const [saveMessage, setSaveMessage] = useState("");
 
   const { data: profile, isLoading, isError, refetch } = useQuery({
-    queryKey: ["profile", localStorage.getItem("token")],
+    queryKey: ["profile", token],
     queryFn: api.profile.get,
+    enabled: Boolean(token),
   });
 
   useEffect(() => {

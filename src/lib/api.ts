@@ -95,7 +95,13 @@ export interface LocationLookup {
 
 // ── Base fetch ────────────────────────────────────────────────────────────────
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? "/api";
+
+function clearStoredAuth() {
+  localStorage.removeItem("authed");
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+}
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem("token");
@@ -110,6 +116,12 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { error?: string; message?: string };
+    if (res.status === 401) {
+      clearStoredAuth();
+      if (window.location.pathname !== "/sign-in") {
+        window.location.href = "/sign-in";
+      }
+    }
     throw new Error(body.error ?? body.message ?? `HTTP ${res.status}`);
   }
   return res.json() as Promise<T>;
