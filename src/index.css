@@ -1,13 +1,11 @@
 @import "tailwindcss";
 
-/* Enable dark: utilities when .dark is on <html> */
-@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  /* Navy sidebar — same in both modes */
+  /* Navy sidebar */
   --color-navy:       oklch(0.17 0.03 256);
   --color-navy-light: oklch(0.22 0.03 256);
   --color-navy-muted: oklch(0.35 0.03 256);
@@ -20,7 +18,7 @@
   --color-border:        oklch(0.92 0.005 256);
   --color-border-strong: oklch(0.86 0.008 256);
 
-  /* Status colors — same in both modes */
+  /* Status colors */
   --color-blue:  oklch(0.62 0.19 264);
   --color-green: oklch(0.72 0.19 152);
   --color-red:   oklch(0.59 0.22 27);
@@ -38,17 +36,6 @@
   --radius-xl: 16px;
 }
 
-/* Dark mode overrides — semantic tokens only */
-.dark {
-  --color-canvas:        oklch(0.10 0.01 256);
-  --color-surface:       oklch(0.14 0.01 256);
-  --color-border:        oklch(0.22 0.01 256);
-  --color-border-strong: oklch(0.29 0.01 256);
-  --color-text:          oklch(0.95 0.005 80);
-  --color-text-2:        oklch(0.75 0.01 256);
-  --color-muted:         oklch(0.52 0.01 256);
-}
-
 @layer base {
   body {
     background-color: var(--color-canvas);
@@ -56,3 +43,4 @@
     font-family: var(--font-sans);
   }
 }
+

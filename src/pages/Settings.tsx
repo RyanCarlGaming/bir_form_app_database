@@ -6,7 +6,6 @@ import { ErrorCard } from "../components/ErrorCard";
 import { Skeleton } from "../components/Skeleton";
 import { fieldInputCls } from "../components/Fields";
 import { api, type OfficeProfile } from "../lib/api";
-import { useTheme } from "../lib/useTheme";
 import { cn } from "../lib/utils";
 
 type ProfileForm = Omit<OfficeProfile, "id" | "updatedAt"> & {
@@ -62,7 +61,6 @@ function ProfileField({ label, value, onChange }: { label: string; value: string
 }
 
 export default function Settings() {
-  const { theme, toggle } = useTheme();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<ProfileForm | null>(null);
   const [saveMessage, setSaveMessage] = useState("");
@@ -213,39 +211,10 @@ export default function Settings() {
           <div className="rounded-2xl border border-border bg-surface p-5">
   
             <p className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2 mb-5">
-              Appearance & Session
+              Session
             </p>
 
-            {/* THEME */}
-            <div className="flex items-center justify-between gap-4 pb-5 border-b border-border">
-              <div>
-                <p className="text-sm font-medium text-text capitalize">
-                  {theme} mode
-                </p>
-
-                <p className="text-xs text-muted mt-1">
-                  Applies to the current browser.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={toggle}
-                className="
-                  px-4 py-2
-                  border border-border
-                  text-sm font-medium
-                  rounded-xl
-                  hover:bg-border
-                  transition-colors
-                "
-              >
-                Toggle Theme
-              </button>
-            </div>
-
-            {/* LOGOUT */}
-            <div className="pt-5 flex flex-col gap-3">
+            <div className="flex flex-col gap-3">
               <button
                 type="button"
                 onClick={handleLogout}

@@ -1,9 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { MapPin, Search, Bell, Sun, Moon } from "lucide-react";
-import { api } from "../lib/api";
-import { useTheme } from "../lib/useTheme";
+import { Search, Bell } from "lucide-react";
 
 const tabs = [
   { label: "Dashboard", href: "/dashboard" },
@@ -29,12 +26,7 @@ export default function Topbar() {
   const [location, navigate] = useLocation();
   const current = activeTab(location);
   const [showRecordsMenu, setShowRecordsMenu] = useState(false);
-  const { theme, toggle } = useTheme();
   const [search, setSearch] = useState("");
-  const { data: profile } = useQuery({
-    queryKey: ["profile", localStorage.getItem("token")],
-    queryFn: api.profile.get,
-  });
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -177,18 +169,6 @@ export default function Topbar() {
           background: "#EF4444",
           border: "2px solid var(--color-canvas)",
         }} />
-      </button>
-
-      <button
-        onClick={toggle}
-        aria-label="Toggle theme"
-        style={{
-          width: 36, height: 36, display: "grid", placeItems: "center",
-          borderRadius: "50%", background: "none", border: "none",
-          cursor: "pointer", color: "var(--color-text)", flexShrink: 0,
-        }}
-      >
-        {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
       </button>
     </div>
   );

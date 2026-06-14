@@ -86,6 +86,13 @@ export interface OfficeProfile {
   updatedAt: string;
 }
 
+export interface LocationLookup {
+  munCode: string;
+  mun: string;
+  rdoCode: string;
+  zipCode: string;
+}
+
 // ── Base fetch ────────────────────────────────────────────────────────────────
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001/api";
@@ -111,6 +118,16 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 // ── API ───────────────────────────────────────────────────────────────────────
 
 export const api = {
+  locations: {
+    lookup: (params: { mun?: string; zipCode?: string; munCode?: string }) => {
+      const q = new URLSearchParams(
+        Object.entries(params)
+          .filter(([, v]) => v !== undefined && v !== "")
+          .map(([k, v]) => [k, String(v)]),
+      );
+      return apiFetch<LocationLookup>(`/locations/lookup?${q}`);
+    },
+  },
   taxpayers: {
     list: () => apiFetch<Taxpayer[]>("/taxpayers"),
     get:  (id: number) => apiFetch<Taxpayer>(`/taxpayers/${id}`),

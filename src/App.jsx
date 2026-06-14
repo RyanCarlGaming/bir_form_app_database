@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Switch, Route, useLocation, useParams } from "wouter";
 import Layout from "./components/Layout";
 import SignIn from "./pages/SignIn";
-import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import NewApplication from "./pages/NewApplication";
 import ApplicationsList from "./pages/ApplicationsList";
@@ -60,7 +59,7 @@ export default function App() {
       <LayoutRoute path="/applications/new" section="Applications" component={NewApplication} />
       <LayoutRoute path="/applications/:id" section="Applications" component={ApplicationDetailRoute} />
       <LayoutRoute path="/applications" section="Applications" component={ApplicationsList} />
-      <LayoutRoute path="/records" section="Records" component={Reports} />
+      <LayoutRoute path="/records" section="Records" component={Records} />
       <LayoutRoute path="/reports" section="Reports" component={Reports} />
       <LayoutRoute path="/drafts" section="My Drafts" component={MyDrafts} />
       <LayoutRoute path="/issued-tins" section="Issued TINs" component={IssuedTINs} />

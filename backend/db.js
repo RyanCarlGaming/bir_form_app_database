@@ -44,6 +44,271 @@ function close() {
   });
 }
 
+async function taxpayerHasUniqueIdNumberConstraint() {
+  const indexes = await all("PRAGMA index_list('taxpayer')");
+
+  for (const index of indexes) {
+    if (!index.unique) continue;
+    const indexColumns = await all(`PRAGMA index_info('${index.name}')`);
+    if (indexColumns.some((column) => column.name === 'id_number')) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function dropStaleTaxpayerMigrationTable() {
+  const staleTable = await get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'taxpayer_old'");
+  if (staleTable) {
+    await run('DROP TABLE taxpayer_old');
+  }
+}
+
+async function tableReferencesLegacyTaxpayer(tableName) {
+  const table = await get('SELECT sql FROM sqlite_master WHERE type = ? AND name = ?', ['table', tableName]);
+  return table?.sql?.includes('REFERENCES "taxpayer_old"') ?? false;
+}
+
+async function repairLegacyTaxpayerForeignKeys() {
+  const needsRepair = await Promise.all([
+    tableReferencesLegacyTaxpayer('dependents'),
+    tableReferencesLegacyTaxpayer('spouse'),
+    tableReferencesLegacyTaxpayer('employee_relationship'),
+    tableReferencesLegacyTaxpayer('form_submissions'),
+  ]);
+
+  if (!needsRepair.some(Boolean)) return;
+
+  await run('PRAGMA foreign_keys = OFF');
+
+  if (await tableReferencesLegacyTaxpayer('dependents')) {
+    await run('ALTER TABLE dependents RENAME TO dependents_legacy_fk');
+    await run(`CREATE TABLE dependents (
+      dependent_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      applicant_id INTEGER NOT NULL,
+      dependent_fullname TEXT NOT NULL,
+      dependent_dob TEXT NOT NULL,
+      is_incapacitated TEXT NOT NULL CHECK (is_incapacitated IN ('Yes', 'No')),
+      FOREIGN KEY (applicant_id) REFERENCES taxpayer(applicant_id)
+    )`);
+    await run(`INSERT INTO dependents (
+      dependent_id, applicant_id, dependent_fullname, dependent_dob, is_incapacitated
+    )
+    SELECT dependent_id, applicant_id, dependent_fullname, dependent_dob, is_incapacitated
+    FROM dependents_legacy_fk`);
+    await run('DROP TABLE dependents_legacy_fk');
+  }
+
+  if (await tableReferencesLegacyTaxpayer('spouse')) {
+    await run('ALTER TABLE spouse RENAME TO spouse_legacy_fk');
+    await run(`CREATE TABLE spouse (
+      applicant_id INTEGER PRIMARY KEY,
+      spouse_fullname TEXT NOT NULL,
+      spouse_employment_status TEXT NOT NULL CHECK (spouse_employment_status IN ('Unemployed', 'Employed Locally', 'Employed Abroad', 'Engaged in Business/Practice of Profession')),
+      exemption_claimant TEXT NULL CHECK (exemption_claimant IN ('Husband Claims', 'Wife Claims')),
+      spouse_emp_tin TEXT NULL,
+      spouse_tin TEXT NULL,
+      FOREIGN KEY (applicant_id) REFERENCES taxpayer(applicant_id),
+      FOREIGN KEY (spouse_emp_tin) REFERENCES employer(emp_tin)
+    )`);
+    await run(`INSERT INTO spouse (
+      applicant_id, spouse_fullname, spouse_employment_status, exemption_claimant, spouse_emp_tin, spouse_tin
+    )
+    SELECT applicant_id, spouse_fullname, spouse_employment_status, exemption_claimant, spouse_emp_tin, spouse_tin
+    FROM spouse_legacy_fk`);
+    await run('DROP TABLE spouse_legacy_fk');
+  }
+
+  if (await tableReferencesLegacyTaxpayer('employee_relationship')) {
+    await run('ALTER TABLE employee_relationship RENAME TO employee_relationship_legacy_fk');
+    await run(`CREATE TABLE employee_relationship (
+      applicant_id INTEGER,
+      emp_tin TEXT,
+      emp_type TEXT NOT NULL CHECK (emp_type IN ('Primary', 'Concurrent', 'Successive')),
+      hire_date TEXT NOT NULL,
+      PRIMARY KEY (applicant_id, emp_tin),
+      FOREIGN KEY (applicant_id) REFERENCES taxpayer(applicant_id),
+      FOREIGN KEY (emp_tin) REFERENCES employer(emp_tin)
+    )`);
+    await run(`INSERT INTO employee_relationship (
+      applicant_id, emp_tin, emp_type, hire_date
+    )
+    SELECT applicant_id, emp_tin, emp_type, hire_date
+    FROM employee_relationship_legacy_fk`);
+    await run('DROP TABLE employee_relationship_legacy_fk');
+  }
+
+  if (await tableReferencesLegacyTaxpayer('form_submissions')) {
+    await run('ALTER TABLE form_submissions RENAME TO form_submissions_legacy_fk');
+    await run(`CREATE TABLE form_submissions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      taxpayer_id INTEGER NOT NULL,
+      form_type TEXT NOT NULL DEFAULT '1700',
+      taxable_year INTEGER,
+      taxable_period TEXT,
+      gross_income REAL DEFAULT 0,
+      allowable_deductions REAL DEFAULT 0,
+      taxable_income REAL DEFAULT 0,
+      tax_due REAL DEFAULT 0,
+      tax_withheld REAL DEFAULT 0,
+      tax_payable REAL DEFAULT 0,
+      penalties_and_interest REAL DEFAULT 0,
+      total_amount_due REAL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'submitted',
+      company_name TEXT,
+      filed_date TEXT,
+      remarks TEXT,
+      form_data TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (taxpayer_id) REFERENCES taxpayer(applicant_id)
+    )`);
+    await run(`INSERT INTO form_submissions (
+      id, taxpayer_id, form_type, taxable_year, taxable_period, gross_income, allowable_deductions,
+      taxable_income, tax_due, tax_withheld, tax_payable, penalties_and_interest, total_amount_due,
+      status, company_name, filed_date, remarks, form_data, created_at, updated_at
+    )
+    SELECT
+      id, taxpayer_id, form_type, taxable_year, taxable_period, gross_income, allowable_deductions,
+      taxable_income, tax_due, tax_withheld, tax_payable, penalties_and_interest, total_amount_due,
+      status, company_name, filed_date, remarks, form_data, created_at, updated_at
+    FROM form_submissions_legacy_fk`);
+    await run('DROP TABLE form_submissions_legacy_fk');
+  }
+
+  await run('PRAGMA foreign_keys = ON');
+}
+
+async function cleanupInvalidLocationRows() {
+  const invalidLocations = await all(`
+    SELECT * FROM location
+    WHERE mun_code IN ('000000000', '0')
+       OR rdo_code = '000'
+       OR mun = 'Unknown'
+  `);
+
+  for (const location of invalidLocations) {
+    const relatedTaxpayers = await all(
+      'SELECT applicant_id, full_address, mun_code FROM taxpayer WHERE mun_code = ?',
+      [location.mun_code],
+    );
+
+    for (const taxpayer of relatedTaxpayers) {
+      const repaired = await findLocation({
+        mun: cityFromAddress(taxpayer.full_address),
+        zipCode: /^0+$/.test(String(location.zip_code ?? '')) ? undefined : location.zip_code,
+      });
+
+      if (repaired && !isDefaultLocation(repaired)) {
+        await run('UPDATE taxpayer SET mun_code = ? WHERE applicant_id = ?', [repaired.munCode, taxpayer.applicant_id]);
+      }
+    }
+
+    const relatedEmployers = await all(
+      'SELECT emp_tin, emp_full_address, emp_mun_code FROM employer WHERE emp_mun_code = ?',
+      [location.mun_code],
+    );
+
+    for (const employer of relatedEmployers) {
+      const repaired = await findLocation({
+        mun: cityFromAddress(employer.emp_full_address),
+        zipCode: /^0+$/.test(String(location.zip_code ?? '')) ? undefined : location.zip_code,
+      });
+
+      await run(
+        'UPDATE employer SET emp_mun_code = ? WHERE emp_tin = ?',
+        [repaired && !isDefaultLocation(repaired) ? repaired.munCode : null, employer.emp_tin],
+      );
+    }
+  }
+
+  for (const location of invalidLocations) {
+    try {
+      await run('DELETE FROM location WHERE mun_code = ?', [location.mun_code]);
+    } catch (err) {
+      if (err.code !== 'SQLITE_CONSTRAINT') {
+        throw err;
+      }
+      
+    }
+  }
+
+}
+
+async function ensureTaxpayerIdNumberUniqueConstraint() {
+  if (await taxpayerHasUniqueIdNumberConstraint()) {
+    return 0;
+  }
+
+  const duplicateIdNumbers = await all(`
+    SELECT id_number, COUNT(*) AS total
+    FROM taxpayer
+    GROUP BY id_number
+    HAVING COUNT(*) > 1
+  `);
+
+  if (duplicateIdNumbers.length > 0) {
+    const duplicates = duplicateIdNumbers.map((row) => row.id_number).join(', ');
+    throw new Error(`Cannot add unique id_number constraint while duplicate ID numbers exist: ${duplicates}`);
+  }
+
+  await run('PRAGMA foreign_keys = OFF');
+  await run('ALTER TABLE taxpayer RENAME TO taxpayer_old');
+  await run(`CREATE TABLE taxpayer (
+    applicant_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    taxpayer_tin TEXT NULL,
+    bir_reg_date TEXT DEFAULT CURRENT_DATE,
+    pcn TEXT NULL,
+    taxpayer_type TEXT NOT NULL,
+    taxpayer_fullname TEXT NOT NULL,
+    gender TEXT NOT NULL CHECK (gender IN ('Male', 'Female')),
+    civil_status TEXT NOT NULL CHECK (civil_status IN ('Single', 'Married', 'Widow/er', 'Legally Separated', 'With Qualified Dependent Child/ren')),
+    date_of_birth TEXT NOT NULL,
+    place_of_birth TEXT NOT NULL,
+    citizenship TEXT NOT NULL,
+    other_citizenship TEXT NULL,
+    mother_fullname TEXT NOT NULL,
+    father_fullname TEXT NOT NULL,
+    full_address TEXT NOT NULL,
+    foreign_address TEXT NULL,
+    mun_code TEXT NOT NULL,
+    landline TEXT NULL,
+    fax TEXT NULL,
+    mobile TEXT NULL,
+    email TEXT NOT NULL,
+    tax_type TEXT NOT NULL DEFAULT 'Income Tax',
+    form_type TEXT NOT NULL DEFAULT '1700',
+    atc TEXT NOT NULL DEFAULT 'II011',
+    id_type TEXT NOT NULL,
+    id_number TEXT NOT NULL UNIQUE,
+    id_effectivity TEXT NOT NULL,
+    id_expiry TEXT NOT NULL,
+    id_issuer TEXT NOT NULL,
+    id_place TEXT NOT NULL,
+    FOREIGN KEY (mun_code) REFERENCES location(mun_code)
+  )`);
+
+  await run(`INSERT INTO taxpayer (
+    applicant_id, taxpayer_tin, bir_reg_date, pcn, taxpayer_type, taxpayer_fullname, gender,
+    civil_status, date_of_birth, place_of_birth, citizenship, other_citizenship,
+    mother_fullname, father_fullname, full_address, foreign_address, mun_code,
+    landline, fax, mobile, email, tax_type, form_type, atc, id_type, id_number,
+    id_effectivity, id_expiry, id_issuer, id_place
+  )
+  SELECT
+    applicant_id, taxpayer_tin, bir_reg_date, pcn, taxpayer_type, taxpayer_fullname, gender,
+    civil_status, date_of_birth, place_of_birth, citizenship, other_citizenship,
+    mother_fullname, father_fullname, full_address, foreign_address, mun_code,
+    landline, fax, mobile, email, tax_type, form_type, atc, id_type, id_number,
+    id_effectivity, id_expiry, id_issuer, id_place
+  FROM taxpayer_old`);
+
+  await run('DROP TABLE taxpayer_old');
+  await run('PRAGMA foreign_keys = ON');
+  return 1;
+}
+
 const taxpayerTypeToDb = {
   local: 'Local Employee',
   resident: 'Resident Alien',
@@ -134,18 +399,122 @@ function fullAddressFromPayload(data) {
   ].filter(Boolean).join(', ');
 }
 
+function cityFromAddress(address) {
+  const parts = String(address ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.at(-1) ?? '';
+}
+
+function hasDefaultLocationCodes(row) {
+  return !row?.mun_code
+    || /^0+$/.test(String(row.mun_code))
+    || !row?.rdo_code
+    || /^0+$/.test(String(row.rdo_code));
+}
+
+function isDefaultLocation(location) {
+  return !location?.munCode
+    || /^0+$/.test(String(location.munCode))
+    || !location?.rdoCode
+    || /^0+$/.test(String(location.rdoCode));
+}
+
 async function ensureLocation({ munCode, mun, rdoCode, zipCode }) {
-  const code = requiredText(munCode, '000000000');
-  await run(
-    `INSERT INTO location (mun_code, mun, rdo_code, zip_code)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(mun_code) DO UPDATE SET
-       mun = COALESCE(excluded.mun, location.mun),
-       rdo_code = COALESCE(excluded.rdo_code, location.rdo_code),
-       zip_code = COALESCE(excluded.zip_code, location.zip_code)`,
-    [code, requiredText(mun, 'Unknown'), requiredText(rdoCode, '000'), requiredText(zipCode, '0000')],
-  );
-  return code;
+  const existingLocation = await findLocation({ munCode, mun, zipCode });
+  if (existingLocation && !isDefaultLocation(existingLocation)) {
+    return existingLocation.munCode;
+  }
+
+  const fallbackLocation = await findLocation({ mun, zipCode });
+  if (fallbackLocation && !isDefaultLocation(fallbackLocation)) {
+    return fallbackLocation.munCode;
+  }
+
+  const requestedCode = String(munCode ?? '').trim();
+  const requestedRdoCode = String(rdoCode ?? '').trim();
+  if (
+    requestedCode
+    && !/^0+$/.test(requestedCode)
+    && requestedRdoCode
+    && !/^0+$/.test(requestedRdoCode)
+  ) {
+    const code = requestedCode;
+    await run(
+      `INSERT INTO location (mun_code, mun, rdo_code, zip_code)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(mun_code) DO UPDATE SET
+         mun = COALESCE(excluded.mun, location.mun),
+         rdo_code = COALESCE(excluded.rdo_code, location.rdo_code),
+         zip_code = COALESCE(excluded.zip_code, location.zip_code)`,
+      [code, requiredText(mun, 'Unknown'), requiredText(rdoCode, '000'), requiredText(zipCode, '0000')],
+    );
+    return code;
+  }
+
+  return null;
+}
+
+async function requireLocation(payload, label = 'Location') {
+  const munCode = await ensureLocation(payload);
+  if (!munCode) {
+    throw new Error(`${label} requires a valid municipality code, RDO code, and ZIP code.`);
+  }
+  return munCode;
+}
+
+function normalizeLocationText(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\s+(city|municipality)$/i, '')
+    .toLowerCase();
+}
+
+function mapLocation(row) {
+  if (!row) return null;
+  return {
+    munCode: row.mun_code,
+    mun: row.mun,
+    rdoCode: row.rdo_code,
+    zipCode: row.zip_code,
+  };
+}
+
+async function findLocation({ munCode, mun, zipCode }) {
+  const requestedMunCode = String(munCode ?? '').trim();
+  if (requestedMunCode && requestedMunCode !== '000000000' && requestedMunCode !== '0') {
+    const byCode = await get('SELECT * FROM location WHERE mun_code = ?', [requestedMunCode]);
+    if (byCode) return mapLocation(byCode);
+  }
+
+  const city = normalizeLocationText(mun);
+  if (city) {
+    const locations = (await all('SELECT * FROM location')).map(mapLocation).filter(Boolean);
+    const sameCity = locations.filter((location) => normalizeLocationText(location.mun) === city);
+    const realSameCity = sameCity.filter((location) => !isDefaultLocation(location));
+
+    if (realSameCity.length === 0) {
+      return null;
+    }
+
+    const exactNameMatches = realSameCity.filter(
+      (location) => normalizeLocationText(location.mun) === city
+        && String(location.mun ?? '').trim().toLowerCase() === String(mun ?? '').trim().toLowerCase(),
+    );
+    const zipMatches = realSameCity.filter((location) => !zipCode || String(location.zipCode ?? '').trim() === String(zipCode).trim());
+
+    return zipMatches[0]
+      ?? exactNameMatches[0]
+      ?? realSameCity[0]
+      ?? null;
+  }
+
+  if (!requestedMunCode) return null;
+
+  const byCode = await get('SELECT * FROM location WHERE mun_code = ?', [requestedMunCode]);
+  return mapLocation(byCode);
 }
 
 function mapTaxpayer(row, spouse, employers = [], dependents = [], formSubmissions = []) {
@@ -271,6 +640,9 @@ export async function initializeDatabase() {
     zip_code TEXT NOT NULL
   )`);
 
+  await dropStaleTaxpayerMigrationTable();
+  await cleanupInvalidLocationRows();
+
   await run(`CREATE TABLE IF NOT EXISTS taxpayer (
     applicant_id INTEGER PRIMARY KEY AUTOINCREMENT,
     taxpayer_tin TEXT NULL,
@@ -304,6 +676,8 @@ export async function initializeDatabase() {
     id_place TEXT NOT NULL,
     FOREIGN KEY (mun_code) REFERENCES location(mun_code)
   )`);
+
+  await ensureTaxpayerIdNumberUniqueConstraint();
 
   await run(`CREATE TABLE IF NOT EXISTS dependents (
     dependent_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -369,6 +743,8 @@ export async function initializeDatabase() {
     FOREIGN KEY (taxpayer_id) REFERENCES taxpayer(applicant_id)
   )`);
 
+  await repairLegacyTaxpayerForeignKeys();
+
   return dbPath;
 }
 
@@ -391,13 +767,32 @@ async function loadTaxpayerRelations(id) {
   return { spouse, employers, dependents, formSubmissions };
 }
 
+async function repairTaxpayerLocation(row) {
+  if (!row || !hasDefaultLocationCodes(row)) return row;
+
+  const location = await findLocation({
+    mun: cityFromAddress(row.full_address),
+    zipCode: /^0+$/.test(String(row.zip_code ?? '')) ? undefined : row.zip_code,
+  });
+  if (!location) return row;
+
+  await run('UPDATE taxpayer SET mun_code = ? WHERE applicant_id = ?', [location.munCode, row.applicant_id]);
+  return {
+    ...row,
+    mun_code: location.munCode,
+    mun: location.mun,
+    rdo_code: location.rdoCode,
+    zip_code: location.zipCode,
+  };
+}
+
 export async function getTaxpayerById(id) {
-  const row = await get(`
+  const row = await repairTaxpayerLocation(await get(`
     SELECT t.*, l.mun, l.rdo_code, l.zip_code
     FROM taxpayer t
     LEFT JOIN location l ON l.mun_code = t.mun_code
     WHERE t.applicant_id = ?
-  `, [id]);
+  `, [id]));
   if (!row) return null;
   const relations = await loadTaxpayerRelations(id);
   return mapTaxpayer(
@@ -416,7 +811,8 @@ export async function listTaxpayers() {
     LEFT JOIN location l ON l.mun_code = t.mun_code
     ORDER BY t.applicant_id DESC
   `);
-  return Promise.all(rows.map(async (row) => {
+  return Promise.all(rows.map(async (rawRow) => {
+    const row = await repairTaxpayerLocation(rawRow);
     const relations = await loadTaxpayerRelations(row.applicant_id);
     return mapTaxpayer(
       row,
@@ -428,13 +824,21 @@ export async function listTaxpayers() {
   }));
 }
 
+export async function lookupLocation(filters = {}) {
+  return findLocation({
+    munCode: filters.munCode,
+    mun: filters.mun,
+    zipCode: filters.zipCode,
+  });
+}
+
 export async function createTaxpayer(data) {
-  const munCode = await ensureLocation({
+  const munCode = await requireLocation({
     munCode: data.munCode,
     mun: data.addrCity,
     rdoCode: data.rdoCode,
     zipCode: data.zipCode,
-  });
+  }, 'Taxpayer address');
   const result = await run(`
     INSERT INTO taxpayer (
       taxpayer_tin, bir_reg_date, pcn, taxpayer_type, taxpayer_fullname, gender, civil_status,
@@ -481,12 +885,12 @@ export async function updateTaxpayer(id, data) {
   const existing = await getTaxpayerById(id);
   if (!existing) return null;
   const next = { ...existing, ...data };
-  const munCode = await ensureLocation({
+  const munCode = await requireLocation({
     munCode: next.munCode,
     mun: next.addrCity,
     rdoCode: next.rdoCode,
     zipCode: next.zipCode,
-  });
+  }, 'Taxpayer address');
   await run(`
     UPDATE taxpayer SET
       taxpayer_tin = ?, pcn = ?, taxpayer_type = ?, taxpayer_fullname = ?, gender = ?,

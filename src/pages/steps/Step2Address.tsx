@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MapPin } from "lucide-react";
@@ -7,6 +8,7 @@ import { Field, fieldInputCls } from "../../components/Fields";
 import { step2Schema, type Step2Values } from "../../lib/schemas/wizard";
 import { useWizard, type StepProps } from "../../lib/wizard";
 import { cn } from "../../lib/utils";
+import { api } from "../../lib/api";
 
 export default function Step2Address({ onNext, onBack }: StepProps) {
   const { state, dispatch } = useWizard();
@@ -14,6 +16,8 @@ export default function Step2Address({ onNext, onBack }: StepProps) {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<Step2Values>({
     resolver: zodResolver(step2Schema),
@@ -32,6 +36,34 @@ export default function Step2Address({ onNext, onBack }: StepProps) {
       fax: state.fax,
     },
   });
+  const addrCity = watch("addrCity");
+  const zipCode = watch("zipCode");
+
+  useEffect(() => {
+    const city = addrCity.trim();
+    if (!city) {
+      setValue("munCode", "", { shouldValidate: true });
+      setValue("rdoCode", "", { shouldValidate: true });
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      api.locations
+        .lookup({ mun: city, zipCode })
+        .then((location) => {
+          setValue("addrCity", location.mun, { shouldValidate: true });
+          setValue("zipCode", location.zipCode, { shouldValidate: true });
+          setValue("munCode", location.munCode, { shouldValidate: true });
+          setValue("rdoCode", location.rdoCode, { shouldValidate: true });
+        })
+        .catch(() => {
+          setValue("munCode", "", { shouldValidate: true });
+          setValue("rdoCode", "", { shouldValidate: true });
+        });
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [addrCity, setValue, zipCode]);
 
   function onSubmit(data: Step2Values) {
     dispatch({ type: "SET_STEP2", payload: data });

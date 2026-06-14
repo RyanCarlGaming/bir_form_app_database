@@ -12,6 +12,7 @@ import {
   getStatsSummary,
   getTaxpayerById,
   initializeDatabase,
+  lookupLocation,
   listForms,
   listTaxpayers,
   updateForm,
@@ -59,6 +60,17 @@ function notFound(res, message) {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Server is running' });
 });
+
+app.get('/api/locations/lookup', asyncRoute(async (req, res) => {
+  const location = await lookupLocation({
+    munCode: req.query.munCode,
+    mun: req.query.mun,
+    zipCode: req.query.zipCode,
+  });
+
+  if (!location) return notFound(res, 'Location not found');
+  return res.json(location);
+}));
 
 app.get('/api/taxpayers', asyncRoute(async (req, res) => {
   const taxpayers = await listTaxpayers();

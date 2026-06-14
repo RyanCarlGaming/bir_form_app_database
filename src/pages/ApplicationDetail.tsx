@@ -173,28 +173,74 @@ function TaxpayerMiniCard({ tp }: { tp: Taxpayer }) {
 }
 
 interface EditState {
+  taxpayerType: string;
   fullName: string;
   tin: string;
+  pcn: string;
+  gender: string;
+  civilStatus: string;
+  dateOfBirth: string;
+  placeOfBirth: string;
+  citizenship: string;
+  otherCitizenship: string;
+  motherFullName: string;
+  fatherFullName: string;
   mobile: string;
   email: string;
   fullAddress: string;
   addrCity: string;
+  foreignAddress: string;
+  munCode: string;
   zipCode: string;
   rdoCode: string;
+  landline: string;
+  fax: string;
+  taxType: string;
+  formType: string;
+  atc: string;
+  idType: string;
+  idNumber: string;
+  idEffectivity: string;
+  idExpiry: string;
+  idIssuer: string;
+  idPlace: string;
   remarks: string;
 }
 
 function makeEditState(form: FormSubmission): EditState {
   const tp = form.taxpayer;
   return {
+    taxpayerType: tp?.taxpayerType ?? "local",
     fullName: tp?.fullName ?? "",
     tin: tp?.tin ?? "",
+    pcn: tp?.pcn ?? "",
+    gender: tp?.gender ?? "male",
+    civilStatus: tp?.civilStatus ?? "single",
+    dateOfBirth: tp?.dateOfBirth ?? "",
+    placeOfBirth: tp?.placeOfBirth ?? "",
+    citizenship: tp?.citizenship ?? "",
+    otherCitizenship: tp?.otherCitizenship ?? "",
+    motherFullName: tp?.motherFullName ?? "",
+    fatherFullName: tp?.fatherFullName ?? "",
     mobile: tp?.mobile ?? "",
     email: tp?.email ?? "",
     fullAddress: tp?.fullAddress ?? [tp?.addrStreet, tp?.addrBarangay, tp?.addrCity].filter(Boolean).join(", "),
     addrCity: tp?.addrCity ?? "",
+    foreignAddress: tp?.foreignAddress ?? "",
+    munCode: String(tp?.munCode ?? ""),
     zipCode: tp?.zipCode ?? "",
     rdoCode: String(tp?.rdoCode ?? ""),
+    landline: tp?.landline ?? "",
+    fax: tp?.fax ?? "",
+    taxType: tp?.taxType ?? "Income Tax",
+    formType: tp?.formType ?? "1700",
+    atc: tp?.atc ?? "II011",
+    idType: tp?.idType ?? "",
+    idNumber: tp?.idNumber ?? "",
+    idEffectivity: tp?.idEffectivity ?? "",
+    idExpiry: tp?.idExpiry ?? "",
+    idIssuer: tp?.idIssuer ?? "",
+    idPlace: tp?.idPlace ?? "",
     remarks: form.remarks ?? "",
   };
 }
@@ -203,15 +249,18 @@ function EditField({
   label,
   value,
   onChange,
+  type = "text",
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  type?: string;
 }) {
   return (
     <label className="flex flex-col gap-1">
       <span className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2">{label}</span>
       <input
+        type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className={fieldInputCls}
@@ -235,6 +284,47 @@ function EditApplicationPanel({
   saving: boolean;
   error: string;
 }) {
+  useEffect(() => {
+    const city = value.addrCity.trim();
+    const zip = value.zipCode.trim();
+
+    if (!city) return;
+
+    const timer = window.setTimeout(() => {
+      api.locations
+        .lookup({ mun: city, zipCode: zip })
+        .then((location) => {
+          if (
+            value.addrCity === location.mun &&
+            value.zipCode === location.zipCode &&
+            value.munCode === location.munCode &&
+            value.rdoCode === location.rdoCode
+          ) {
+            return;
+          }
+
+          onChange({
+            ...value,
+            addrCity: location.mun,
+            zipCode: location.zipCode,
+            munCode: location.munCode,
+            rdoCode: location.rdoCode,
+          });
+        })
+        .catch(() => {
+          if (!value.munCode && !value.rdoCode) return;
+
+          onChange({
+            ...value,
+            munCode: "",
+            rdoCode: "",
+          });
+        });
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [onChange, value.addrCity, value.munCode, value.rdoCode, value.zipCode]);
+
   function setField<K extends keyof EditState>(key: K, nextValue: EditState[K]) {
     onChange({ ...value, [key]: nextValue });
   }
@@ -242,17 +332,73 @@ function EditApplicationPanel({
   return (
     <div className="rounded-xl border border-border bg-surface overflow-hidden">
       <div className="px-5 py-3 border-b border-border bg-canvas">
-        <p className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2">Edit Taxpayer Record</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2">Edit Application Record</p>
       </div>
       <div className="grid grid-cols-2 gap-4 p-5">
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2">Taxpayer Type</span>
+          <select
+            value={value.taxpayerType}
+            onChange={(event) => setField("taxpayerType", event.target.value)}
+            className={fieldInputCls}
+          >
+            <option value="local">Local Employee</option>
+            <option value="resident">Resident Alien</option>
+            <option value="alien">Non-Resident Alien</option>
+          </select>
+        </label>
         <EditField label="Full Name" value={value.fullName} onChange={(v) => setField("fullName", v)} />
         <EditField label="TIN" value={value.tin} onChange={(v) => setField("tin", v)} />
+        <EditField label="PCN" value={value.pcn} onChange={(v) => setField("pcn", v)} />
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2">Gender</span>
+          <select
+            value={value.gender}
+            onChange={(event) => setField("gender", event.target.value)}
+            className={fieldInputCls}
+          >
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2">Civil Status</span>
+          <select
+            value={value.civilStatus}
+            onChange={(event) => setField("civilStatus", event.target.value)}
+            className={fieldInputCls}
+          >
+            <option value="single">Single</option>
+            <option value="married">Married</option>
+            <option value="widowed">Widow/er</option>
+            <option value="separated">Legally Separated</option>
+          </select>
+        </label>
+        <EditField label="Date of Birth" type="date" value={value.dateOfBirth} onChange={(v) => setField("dateOfBirth", v)} />
+        <EditField label="Place of Birth" value={value.placeOfBirth} onChange={(v) => setField("placeOfBirth", v)} />
+        <EditField label="Citizenship" value={value.citizenship} onChange={(v) => setField("citizenship", v)} />
+        <EditField label="Other Citizenship" value={value.otherCitizenship} onChange={(v) => setField("otherCitizenship", v)} />
+        <EditField label="Mother Full Name" value={value.motherFullName} onChange={(v) => setField("motherFullName", v)} />
+        <EditField label="Father Full Name" value={value.fatherFullName} onChange={(v) => setField("fatherFullName", v)} />
         <EditField label="Mobile Number" value={value.mobile} onChange={(v) => setField("mobile", v)} />
         <EditField label="Email" value={value.email} onChange={(v) => setField("email", v)} />
         <EditField label="Full Address" value={value.fullAddress} onChange={(v) => setField("fullAddress", v)} />
         <EditField label="City" value={value.addrCity} onChange={(v) => setField("addrCity", v)} />
+        <EditField label="Foreign Address" value={value.foreignAddress} onChange={(v) => setField("foreignAddress", v)} />
+        <EditField label="Mun. Code" value={value.munCode} onChange={(v) => setField("munCode", v)} />
         <EditField label="ZIP Code" value={value.zipCode} onChange={(v) => setField("zipCode", v)} />
         <EditField label="RDO Code" value={value.rdoCode} onChange={(v) => setField("rdoCode", v)} />
+        <EditField label="Landline" value={value.landline} onChange={(v) => setField("landline", v)} />
+        <EditField label="Fax" value={value.fax} onChange={(v) => setField("fax", v)} />
+        <EditField label="Tax Type" value={value.taxType} onChange={(v) => setField("taxType", v)} />
+        <EditField label="Form Type" value={value.formType} onChange={(v) => setField("formType", v)} />
+        <EditField label="ATC" value={value.atc} onChange={(v) => setField("atc", v)} />
+        <EditField label="ID Type" value={value.idType} onChange={(v) => setField("idType", v)} />
+        <EditField label="ID Number" value={value.idNumber} onChange={(v) => setField("idNumber", v)} />
+        <EditField label="ID Effectivity" type="date" value={value.idEffectivity} onChange={(v) => setField("idEffectivity", v)} />
+        <EditField label="ID Expiry" type="date" value={value.idExpiry} onChange={(v) => setField("idExpiry", v)} />
+        <EditField label="ID Issuer" value={value.idIssuer} onChange={(v) => setField("idIssuer", v)} />
+        <EditField label="ID Place" value={value.idPlace} onChange={(v) => setField("idPlace", v)} />
         <label className="col-span-2 flex flex-col gap-1">
           <span className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2">Remarks</span>
           <textarea
@@ -322,14 +468,37 @@ export default function ApplicationDetail({ id }: Props) {
       if (!form?.taxpayer) throw new Error("Taxpayer record is missing.");
 
       await api.taxpayers.update(form.taxpayer.id, {
+        taxpayerType: next.taxpayerType,
         fullName: next.fullName,
         tin: next.tin,
+        pcn: next.pcn,
+        gender: next.gender,
+        civilStatus: next.civilStatus,
+        dateOfBirth: next.dateOfBirth,
+        placeOfBirth: next.placeOfBirth,
+        citizenship: next.citizenship,
+        otherCitizenship: next.otherCitizenship,
+        motherFullName: next.motherFullName,
+        fatherFullName: next.fatherFullName,
         mobile: next.mobile,
         email: next.email,
         fullAddress: next.fullAddress,
         addrCity: next.addrCity,
+        foreignAddress: next.foreignAddress,
+        munCode: next.munCode,
         zipCode: next.zipCode,
         rdoCode: next.rdoCode,
+        landline: next.landline,
+        fax: next.fax,
+        taxType: next.taxType,
+        formType: next.formType,
+        atc: next.atc,
+        idType: next.idType,
+        idNumber: next.idNumber,
+        idEffectivity: next.idEffectivity,
+        idExpiry: next.idExpiry,
+        idIssuer: next.idIssuer,
+        idPlace: next.idPlace,
       });
 
       return api.forms.update(form.id, { remarks: next.remarks });
