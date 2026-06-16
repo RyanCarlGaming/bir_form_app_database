@@ -77,6 +77,7 @@ export interface WizardState {
   idExpiry: string;
   idIssuer: string;
   idPlace: string;
+  completedSteps: number[];
 }
 
 export const WIZARD_DEFAULT: WizardState = {
@@ -97,6 +98,7 @@ export const WIZARD_DEFAULT: WizardState = {
   spouseEmployerTin: "", spouseEmployerFullName: "", exemptionClaimant: "",
   dependents: [],
   idType: "", idNumber: "", idEffectivity: "", idExpiry: "", idIssuer: "", idPlace: "",
+  completedSteps: [],
 };
 
 export type WizardAction =
@@ -104,6 +106,7 @@ export type WizardAction =
   | { type: "SET_STEP2"; payload: Partial<WizardState> }
   | { type: "SET_STEP3"; payload: Partial<WizardState> }
   | { type: "SET_STEP4"; payload: Partial<WizardState> }
+  | { type: "MARK_STEP_DONE"; step: number }
   | { type: "RESET" };
 
 export function wizardReducer(state: WizardState, action: WizardAction): WizardState {
@@ -113,6 +116,10 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
     case "SET_STEP3":
     case "SET_STEP4":
       return { ...state, ...action.payload };
+    case "MARK_STEP_DONE":
+      return state.completedSteps.includes(action.step)
+        ? state
+        : { ...state, completedSteps: [...state.completedSteps, action.step] };
     case "RESET":
       return WIZARD_DEFAULT;
   }
@@ -121,6 +128,7 @@ export function wizardReducer(state: WizardState, action: WizardAction): WizardS
 export const WizardContext = createContext<{
   state: WizardState;
   dispatch: Dispatch<WizardAction>;
+  goTo?: (step: number) => void;
 } | null>(null);
 
 export function useWizard() {

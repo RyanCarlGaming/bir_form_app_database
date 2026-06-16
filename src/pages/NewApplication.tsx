@@ -35,6 +35,7 @@ export default function NewApplication() {
   }, [state]);
 
   function goTo(next: StepNum) {
+    if (next !== nav.step) dispatch({ type: "MARK_STEP_DONE", step: nav.step });
     setNav((n) => ({ step: next, dir: next > n.step ? 1 : -1 }));
   }
 
@@ -46,7 +47,7 @@ export default function NewApplication() {
   const StepComponent = STEP_COMPONENTS[nav.step - 1];
 
   return (
-    <WizardContext.Provider value={{ state, dispatch }}>
+    <WizardContext.Provider value={{ state, dispatch, goTo }}>
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={nav.step}

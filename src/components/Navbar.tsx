@@ -321,7 +321,7 @@ export default function Navbar() {
           </nav>
 
           {/* RIGHT PROFILE */}
-          <div className="relative hidden sm:block">
+          <div className="relative block">
             <Link
               href="/settings"
               className="
@@ -357,7 +357,7 @@ export default function Navbar() {
                 )}
               </div>
 
-              <div className="hidden sm:flex items-center gap-1">
+              <div className="flex items-center gap-1">
                 <span className="
                   text-sm font-semibold
                   text-yellow-950

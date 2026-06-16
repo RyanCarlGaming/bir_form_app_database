@@ -129,7 +129,7 @@ export default function Settings() {
     return (
       <>
         <PageHeader title="Settings" sub="Workspace preferences for the registration portal." />
-        <div className="grid grid-cols-[1.2fr_0.8fr] gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-4">
           <Skeleton className="h-[520px]" />
           <Skeleton className="h-40" />
         </div>
@@ -144,16 +144,16 @@ export default function Settings() {
   return (
     <>
       <PageHeader title="Settings" sub="Workspace preferences and officer profile." />
-      <div className="grid grid-cols-[1.2fr_0.8fr] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-4">
         <div className="rounded-xl border border-border bg-surface overflow-hidden">
           <div className="px-5 py-3 border-b border-border bg-canvas">
             <p className="text-xs font-semibold uppercase tracking-[0.04em] text-text-2">Profile Shown</p>
           </div>
-          <div className="p-5 flex items-start gap-5">
+          <div className="p-5 flex flex-col md:flex-row items-start gap-5">
             <div className="flex flex-col items-center gap-3">
               <GenderAvatar gender={form.gender} />
             </div>
-            <div className="flex-1 grid grid-cols-2 gap-4">
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
               <ProfileField label="Full Name" value={form.officerName} onChange={(v) => setField("officerName", v)} />
               <ProfileField label="Company" value={form.companyName} onChange={(v) => setField("companyName", v)} />
               <ProfileField label="Role" value={form.role} onChange={(v) => setField("role", v)} />
