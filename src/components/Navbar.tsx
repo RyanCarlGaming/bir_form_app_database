@@ -164,7 +164,7 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-yellow-50 border-b border-yellow-200 shadow-sm">
         <div className="h-16 px-4 sm:px-6 flex items-center justify-between">
 
           {/* LEFT */}
@@ -178,7 +178,7 @@ export default function Navbar() {
             </div>
 
             <div className="leading-tight min-w-0">
-              <div className="font-bold text-gray-900 text-[15px]">
+              <div className="font-bold text-yellow-950 text-[15px]">
                 BIR Online Registration
               </div>
 
@@ -196,8 +196,8 @@ export default function Navbar() {
                 transition-all duration-150
                 ${
                   location === "/dashboard"
-                    ? "bg-gray-100 text-gray-900"
-                    : "text-gray-600 hover:bg-gray-100"
+                    ? "bg-yellow-200 text-yellow-950"
+                    : "text-yellow-900 hover:bg-yellow-100"
                 }
               `}
               style={{
@@ -266,8 +266,8 @@ export default function Navbar() {
                       absolute top-[70px] left-0
                       w-72
                       rounded-2xl
-                      border border-gray-200
-                      bg-white
+                      border border-yellow-200
+                      bg-yellow-50
                       shadow-xl
                       overflow-hidden
                     ">
@@ -285,11 +285,11 @@ export default function Navbar() {
                               flex items-center gap-3
                               px-5 py-4
                               transition-colors duration-150
-                              border-b border-gray-100 last:border-0
+                              border-b border-yellow-100 last:border-0
                               ${
                                 activeItem
-                                  ? "bg-gray-100"
-                                  : "hover:bg-gray-50"
+                                  ? "bg-yellow-200"
+                                  : "hover:bg-yellow-100"
                               }
                             `}
                             style={{
@@ -300,13 +300,13 @@ export default function Navbar() {
                             <item.icon
                               size={18}
                               className="
-                                text-gray-500
+                                text-yellow-700
                               "
                             />
 
                             <span className="
                               text-sm font-medium
-                              text-gray-700
+                              text-yellow-950
                             ">
                               {item.label}
                             </span>
@@ -328,9 +328,9 @@ export default function Navbar() {
                 flex items-center gap-3
                 pl-3 pr-3 py-2
                 rounded-full
-                border border-gray-200
-                bg-white
-                hover:bg-gray-50
+                border border-yellow-200
+                bg-yellow-100
+                hover:bg-yellow-200
                 transition-all duration-150
               "
               style={{
@@ -340,8 +340,8 @@ export default function Navbar() {
             >
               <div className="
                 w-9 h-9 rounded-full
-                bg-gray-100
-                text-gray-700
+                bg-yellow-200
+                text-yellow-950
                 text-xs font-bold
                 grid place-items-center
                 overflow-hidden
@@ -360,14 +360,14 @@ export default function Navbar() {
               <div className="hidden sm:flex items-center gap-1">
                 <span className="
                   text-sm font-semibold
-                  text-gray-800
+                  text-yellow-950
                 ">
                   Hi, {firstName}
                 </span>
 
                 <ChevronDown
                   size={16}
-                  className="text-gray-400"
+                  className="text-yellow-700"
                 />
               </div>
             </Link>
@@ -381,10 +381,10 @@ export default function Navbar() {
               lg:hidden
               inline-grid h-10 w-10 place-items-center
               rounded-lg
-              border border-gray-200
-              bg-white
-              text-gray-800
-              hover:bg-gray-50
+              border border-yellow-200
+              bg-yellow-100
+              text-yellow-950
+              hover:bg-yellow-200
               transition-colors
             "
           >
@@ -404,12 +404,12 @@ export default function Navbar() {
 
           <aside className="
             absolute right-0 top-0 h-dvh w-[min(84vw,320px)]
-            bg-white
-            border-l border-gray-200
+            bg-yellow-50
+            border-l border-yellow-200
             shadow-2xl
             flex flex-col
           ">
-            <div className="h-16 px-4 flex items-center justify-between border-b border-gray-100">
+            <div className="h-16 px-4 flex items-center justify-between border-b border-yellow-100">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-full overflow-hidden shrink-0">
                   <img
@@ -420,10 +420,10 @@ export default function Navbar() {
                 </div>
 
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-gray-900 truncate">
+                  <p className="text-sm font-bold text-yellow-950 truncate">
                     BIR Online
                   </p>
-                  <p className="text-xs text-gray-500 truncate">
+                  <p className="text-xs text-yellow-800 truncate">
                     Hi, {firstName}
                   </p>
                 </div>
@@ -435,8 +435,8 @@ export default function Navbar() {
                 onClick={() => setMobileOpen(false)}
                 className="
                   grid h-9 w-9 place-items-center rounded-lg
-                  text-gray-700
-                  hover:bg-gray-100
+                  text-yellow-950
+                  hover:bg-yellow-100
                 "
               >
                 <X size={19} />
@@ -456,8 +456,8 @@ export default function Navbar() {
                       text-sm font-medium transition-colors
                       ${
                         active
-                          ? "bg-gray-100 text-gray-950"
-                          : "text-gray-600 hover:bg-gray-100"
+                          ? "bg-yellow-200 text-yellow-950"
+                          : "text-yellow-900 hover:bg-yellow-100"
                       }
                     `}
                     style={{
@@ -467,7 +467,7 @@ export default function Navbar() {
                   >
                     <item.icon
                       size={18}
-                      className={active ? "text-gray-900" : "text-gray-500"}
+                      className={active ? "text-yellow-950" : "text-yellow-700"}
                     />
                     <span>{item.label}</span>
                   </Link>
@@ -479,7 +479,7 @@ export default function Navbar() {
       )}
 
       {/* SPACING */}
-      <div className="h-16" />
+      <div className="h-24" />
     </>
   );
 }

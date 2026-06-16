@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -89,22 +90,48 @@ interface DashboardCardProps {
 }
 
 function DashboardCard({ title, icon: Icon, children, className = "" }: DashboardCardProps) {
+  // Toggle state to control collapse/expand visibility
+  const [isExpanded, setIsExpanded] = useState(true);
+
   return (
     <div
-      className={`rounded-xl border border-border bg-surface overflow-hidden flex flex-col ${className}`}
+      className={`rounded-xl border border-border bg-surface overflow-hidden flex flex-col h-fit ${className}`}
     >
       {/* Card header */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-surface">
+      <div 
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-surface cursor-pointer select-none group"
+      >
         <div className="flex items-center gap-2.5">
-          <Icon size={18} className="text-primary" />
+          <Icon size={18} className="text-primary animate-pulse-slow" />
           <span className="text-sm font-semibold text-primary">{title}</span>
         </div>
-        <button className="text-muted hover:text-text transition-colors">
-          <ChevronDown size={18} />
+        <button 
+          onClick={(e) => {
+            e.stopPropagation(); // Prevents double toggling if user hits the exact button icon
+            setIsExpanded(!isExpanded);
+          }}
+          className="text-muted group-hover:text-text p-0.5 rounded hover:bg-canvas transition-colors focus:outline-none cursor-pointer"
+        >
+          <ChevronDown 
+            size={18} 
+            className={`transition-transform duration-200 ease-in-out ${
+              isExpanded ? "rotate-180 text-primary" : "rotate-0"
+            }`}
+          />
         </button>
       </div>
-      {/* Card body */}
-      <div className="flex-1 p-0">{children}</div>
+      
+      {/* Card body container */}
+      <div 
+        className={`flex-1 p-0 transition-all duration-200 ease-in-out ${
+          isExpanded 
+            ? "opacity-100 max-height-visible" 
+            : "max-h-0 opacity-0 overflow-hidden pointer-events-none"
+        }`}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -112,59 +139,113 @@ function DashboardCard({ title, icon: Icon, children, className = "" }: Dashboar
 /* ─── Mini Calendar Component ─── */
 function MiniCalendar() {
   const today = new Date();
-  const currentMonth = today.toLocaleString("default", { month: "long" });
-  const currentYear = today.getFullYear();
+  
+  // Keep track of the month/year currently being viewed
+  const [currentMonthDate, setCurrentMonthDate] = useState(new Date());
+  // Keep track of the explicitly selected date (defaults to today)
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
 
-  // Simple calendar grid for demo (March 2026 from screenshot)
-  const days = [
-    [null, null, null, null, null, "01", null],
-    ["02", "03", "04", "05", "06", "07", "08"],
-    ["09", "10", "11", "12", "13", "14", "15"],
-    ["16", "17", "18", "19", "20", "21", "22"],
-    ["23", "24", "25", "26", "27", "28", "29"],
-    ["30", "31", null, null, null, null, null],
-  ];
+  const currentMonthLabel = currentMonthDate.toLocaleString("default", { month: "long" });
+  const currentYear = currentMonthDate.getFullYear();
+
+  const viewYear = currentMonthDate.getFullYear();
+  const viewMonth = currentMonthDate.getMonth(); // 0-indexed (0 = Jan, 11 = Dec)
+
+  // 1. Calculate calendar grid variables for a Monday-start week
+  const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay();
+  // Adjust JS Sunday=0 to Monday=0 indexing
+  const startOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1; 
+  const totalDaysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  // 2. Build the flat array of days (padding nulls for empty slots)
+  const blanks = Array(startOffset).fill(null);
+  const dayNumbers = Array.from({ length: totalDaysInMonth }, (_, i) => String(i + 1).padStart(2, "0"));
+  const gridDays = [...blanks, ...dayNumbers];
 
   const weekDays = ["M", "T", "W", "T", "F", "S", "S"];
 
+  // 3. Navigation handlers
+  const handlePrevMonth = () => {
+    setCurrentMonthDate(new Date(viewYear, viewMonth - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonthDate(new Date(viewYear, viewMonth + 1, 1));
+  };
+
+  const handleGoToToday = () => {
+    const rightNow = new Date();
+    setCurrentMonthDate(rightNow);
+    setSelectedDate(rightNow);
+  };
+
   return (
-    <div className="p-4">
+    <div className="p-4 selection:bg-transparent">
       {/* Calendar header */}
       <div className="flex items-center justify-between mb-4">
-        <button className="p-1 hover:bg-canvas rounded transition-colors">
-          <ChevronLeft size={16} className="text-muted" />
+        <button 
+          onClick={handlePrevMonth}
+          className="p-1 hover:bg-canvas rounded transition-colors text-muted hover:text-text cursor-pointer"
+        >
+          <ChevronLeft size={16} />
         </button>
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-primary">
-            {currentMonth} {currentYear}
+            {currentMonthLabel} {currentYear}
           </span>
-          <span className="text-xs px-2 py-0.5 rounded-full border border-border text-muted">
+          <button 
+            onClick={handleGoToToday}
+            className="text-xs px-2 py-0.5 rounded-full border border-border text-muted hover:bg-canvas hover:text-text transition-colors cursor-pointer"
+          >
             Today
-          </span>
+          </button>
         </div>
-        <button className="p-1 hover:bg-canvas rounded transition-colors">
-          <ChevronRight size={16} className="text-muted" />
+        <button 
+          onClick={handleNextMonth}
+          className="p-1 hover:bg-canvas rounded transition-colors text-muted hover:text-text cursor-pointer"
+        >
+          <ChevronRight size={16} />
         </button>
       </div>
 
-
-
-      {/* Calendar days */}
-      <div className="grid grid-cols-7 gap-1">
-        {days.flat().map((day, idx) => (
-          <div
-            key={idx}
-            className={`text-center text-sm py-1.5 rounded cursor-default transition-colors ${
-              day === "23"
-                ? "bg-primary text-white font-semibold"
-                : day
-                ? "text-text hover:bg-canvas"
-                : ""
-            }`}
-          >
-            {day || ""}
+      {/* Weekday headers */}
+      <div className="grid grid-cols-7 gap-1 mb-2 text-center">
+        {weekDays.map((day, idx) => (
+          <div key={idx} className="text-[10px] font-bold text-muted uppercase">
+            {day}
           </div>
         ))}
+      </div>
+
+      {/* Calendar days grid */}
+      <div className="grid grid-cols-7 gap-1">
+        {gridDays.map((day, idx) => {
+          if (!day) {
+            return <div key={`empty-${idx}`} className="opacity-0 pointer-events-none" />;
+          }
+
+          // Check if this specific cell matches the user's selected date configuration
+          const dayNum = parseInt(day, 10);
+          const isSelected = 
+            selectedDate &&
+            selectedDate.getDate() === dayNum &&
+            selectedDate.getMonth() === viewMonth &&
+            selectedDate.getFullYear() === viewYear;
+
+          return (
+            <button
+              key={`day-${day}`}
+              onClick={() => setSelectedDate(new Date(viewYear, viewMonth, dayNum))}
+              className={`text-center text-sm py-1.5 rounded transition-all focus:outline-none font-medium cursor-pointer ${
+                isSelected
+                  ? "border border-black text-black font-bold bg-transparent shadow-sm"
+                  : "text-text hover:bg-canvas hover:text-primary"
+              }`}
+            >
+              {day}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -184,8 +265,8 @@ function PendingApplicationsList() {
     {
       id: "1",
       name: "Business Permit",
-      status: "In Review",
-      statusVariant: "default",
+      status: "Done",
+      statusVariant: "success",
       icon: FileText,
     },
     {
@@ -194,14 +275,7 @@ function PendingApplicationsList() {
       status: "Awaiting Payment",
       statusVariant: "warning",
       icon: CreditCard,
-    },
-    {
-      id: "3",
-      name: "QCitizen ID",
-      status: "For Releasing",
-      statusVariant: "info",
-      icon: Users,
-    },
+    }
   ];
 
   const statusStyles: Record<string, string> = {
@@ -214,26 +288,40 @@ function PendingApplicationsList() {
   return (
     <div className="divide-y divide-border">
       {apps.map((app) => (
-        <div key={app.id} className="px-5 py-4 hover:bg-canvas/50 transition-colors">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5">
-              <app.icon size={20} className="text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-text truncate">{app.name}</p>
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-xs text-muted">Status:</span>
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    statusStyles[app.statusVariant]
-                  }`}
-                >
-                  {app.status}
-                </span>
+        <a
+          key={app.id}
+          href="#"
+          onClick={(e) => e.preventDefault()}
+          className="block px-5 py-4 hover:bg-canvas/50 transition-colors cursor-pointer group outline-none"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="mt-0.5 shrink-0">
+                <app.icon size={20} className="text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-text truncate group-hover:text-primary transition-colors">
+                  {app.name}
+                </p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-xs text-muted">Status:</span>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      statusStyles[app.statusVariant]
+                    }`}
+                  >
+                    {app.status}
+                  </span>
+                </div>
               </div>
             </div>
+            
+            {/* Smooth arrow reveal on hover */}
+            <div className="text-muted opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all pl-2 shrink-0">
+              <ChevronRight size={18} />
+            </div>
           </div>
-        </div>
+        </a>
       ))}
     </div>
   );
@@ -241,7 +329,10 @@ function PendingApplicationsList() {
 
 /* ─── Recent Payments Chart (Line Chart) ─── */
 function RecentPaymentsChart() {
-  // Demo data matching the screenshot
+  // Track which data point index is currently being hovered
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  // Demo data
   const data = [
     { month: "Jan", value: 500 },
     { month: "Feb", value: 800 },
@@ -274,14 +365,14 @@ function RecentPaymentsChart() {
   } L ${points[0].x} ${padding + plotHeight} Z`;
 
   return (
-    <div className="p-4">
+    <div className="p-4 selection:bg-transparent">
       <svg
         viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-        className="w-full"
+        className="w-full overflow-visible"
         style={{ maxHeight: "180px" }}
       >
         {/* Grid lines */}
-        {[0, 500, 1000, 1500].map((val, i) => {
+        {[0, 500, 1000, 1500].map((val) => {
           const y = padding + plotHeight - (val / maxValue) * plotHeight;
           return (
             <g key={val}>
@@ -308,9 +399,9 @@ function RecentPaymentsChart() {
         })}
 
         {/* Area under the line */}
-        <path d={areaPath} fill="var(--color-primary)" fillOpacity="0.08" />
+        <path d={areaPath} fill="var(--color-primary)" fillOpacity="0.06" />
 
-        {/* Line */}
+        {/* Main Line */}
         <path
           d={linePath}
           fill="none"
@@ -320,19 +411,32 @@ function RecentPaymentsChart() {
           strokeLinejoin="round"
         />
 
-        {/* Data points */}
-        {points.map((p, i) => (
-          <g key={i}>
-            <circle
-              cx={p.x}
-              cy={p.y}
-              r="4"
-              fill="var(--color-primary)"
-              stroke="white"
-              strokeWidth="2"
-            />
-          </g>
-        ))}
+        {/* Interactive Data points */}
+        {points.map((p, i) => {
+          const isHovered = hoveredIndex === i;
+          return (
+            <g
+              key={i}
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(null)}
+              className="cursor-pointer"
+            >
+              {/* Invisible larger target circle to make hovering smooth and easy */}
+              <circle cx={p.x} cy={p.y} r="14" fill="transparent" />
+              
+              {/* Visible Data Dot */}
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r={isHovered ? 5.5 : 4}
+                fill={isHovered ? "black" : "var(--color-primary)"}
+                stroke={isHovered ? "white" : "white"}
+                strokeWidth={isHovered ? 2.5 : 2}
+                className="transition-all duration-150 ease-out"
+              />
+            </g>
+          );
+        })}
 
         {/* X-axis labels */}
         {points.map((p, i) => (
@@ -341,12 +445,45 @@ function RecentPaymentsChart() {
             x={p.x}
             y={padding + plotHeight + 16}
             textAnchor="middle"
-            className="text-xs fill-muted"
+            className={`text-xs transition-colors duration-150 ${
+              hoveredIndex === i ? "fill-black font-bold" : "fill-muted"
+            }`}
             style={{ fontSize: "10px" }}
           >
             {p.month}
           </text>
         ))}
+
+        {/* Floating Value Tooltip */}
+        {hoveredIndex !== null && (
+          <g
+            transform={`translate(${points[hoveredIndex].x}, ${points[hoveredIndex].y - 28})`}
+            className="pointer-events-none animate-in fade-in zoom-in-95 duration-100"
+          >
+            {/* Tooltip card background */}
+            <rect
+              x="-35"
+              y="-18"
+              width="70"
+              height="22"
+              rx="5"
+              fill="black"
+            />
+            {/* Tooltip textual value */}
+            <text
+              x="0"
+              y="-3"
+              textAnchor="middle"
+              fill="white"
+              className="font-mono font-bold"
+              style={{ fontSize: "10px" }}
+            >
+              ₱{points[hoveredIndex].value}
+            </text>
+            {/* Small downward structural arrow decoration */}
+            <polygon points="-4,4 4,4 0,8" fill="black" />
+          </g>
+        )}
       </svg>
     </div>
   );
@@ -366,7 +503,7 @@ function WelcomeBanner({ userName }: { userName?: string }) {
       </div>
       <Link
         href="/applications"
-        className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors"
+        className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-black text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors"
       >
         <ClipboardList size={16} />
         MY APPLICATIONS
@@ -386,13 +523,14 @@ function AlertBanner() {
         />
         <div>
           <p className="text-sm font-semibold text-amber-800">
-            Page is currently work in progress.
+            BIR Online Registration Project
           </p>
           <div className="mt-2 rounded-md bg-white/60 border border-amber-100 px-3 py-2">
             <p className="text-xs text-amber-700">
               <span className="font-semibold">NOTE:</span>{" "}
               <span className="italic">
-                The data shown below is for demonstration purposes only.
+                This Project is for demonstration of our Information Management SQL Database Course.
+                It is not an official BIR system and should not be used for real applications.
               </span>
             </p>
           </div>
@@ -482,8 +620,8 @@ export default function Dashboard() {
           <PendingApplicationsList />
         </DashboardCard>
 
-        {/* Upcoming Appointments */}
-        <DashboardCard title="Upcoming Appointments" icon={Calendar}>
+        {/* Calendar */}
+        <DashboardCard title="Calendar" icon={Calendar}>
           <MiniCalendar />
         </DashboardCard>
 

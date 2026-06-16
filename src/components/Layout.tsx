@@ -15,7 +15,7 @@ export default function Layout({ children, section }: LayoutProps) {
       <Navbar />
       <div className="flex-1 flex flex-col overflow-auto bg-canvas">
         <Topbar />
-        <main className="flex-1 overflow-auto px-4 py-5 sm:px-6 lg:px-10 lg:py-9">{children}</main>
+        <main className="pt-20 px-6">{children}</main>
       </div>
     </div>
   );
