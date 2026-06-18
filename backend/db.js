@@ -197,7 +197,6 @@ async function cleanupInvalidLocationRows() {
     for (const taxpayer of relatedTaxpayers) {
       const repaired = await findLocation({
         mun: cityFromAddress(taxpayer.full_address),
-        zipCode: /^0+$/.test(String(location.zip_code ?? '')) ? undefined : location.zip_code,
       });
 
       if (repaired && !isDefaultLocation(repaired)) {
@@ -213,7 +212,6 @@ async function cleanupInvalidLocationRows() {
     for (const employer of relatedEmployers) {
       const repaired = await findLocation({
         mun: cityFromAddress(employer.emp_full_address),
-        zipCode: /^0+$/.test(String(location.zip_code ?? '')) ? undefined : location.zip_code,
       });
 
       await run(
@@ -273,6 +271,7 @@ async function ensureTaxpayerIdNumberUniqueConstraint() {
     full_address TEXT NOT NULL,
     foreign_address TEXT NULL,
     mun_code TEXT NOT NULL,
+    zip_code TEXT NOT NULL,
     landline TEXT NULL,
     fax TEXT NULL,
     mobile TEXT NULL,
@@ -292,14 +291,14 @@ async function ensureTaxpayerIdNumberUniqueConstraint() {
   await run(`INSERT INTO taxpayer (
     applicant_id, taxpayer_tin, bir_reg_date, pcn, taxpayer_type, taxpayer_fullname, gender,
     civil_status, date_of_birth, place_of_birth, citizenship, other_citizenship,
-    mother_fullname, father_fullname, full_address, foreign_address, mun_code,
+    mother_fullname, father_fullname, full_address, foreign_address, mun_code, zip_code,
     landline, fax, mobile, email, tax_type, form_type, atc, id_type, id_number,
     id_effectivity, id_expiry, id_issuer, id_place
   )
   SELECT
     applicant_id, taxpayer_tin, bir_reg_date, pcn, taxpayer_type, taxpayer_fullname, gender,
     civil_status, date_of_birth, place_of_birth, citizenship, other_citizenship,
-    mother_fullname, father_fullname, full_address, foreign_address, mun_code,
+    mother_fullname, father_fullname, full_address, foreign_address, mun_code, COALESCE(zip_code, '0000'),
     landline, fax, mobile, email, tax_type, form_type, atc, id_type, id_number,
     id_effectivity, id_expiry, id_issuer, id_place
   FROM taxpayer_old`);
@@ -421,13 +420,17 @@ function isDefaultLocation(location) {
     || /^0+$/.test(String(location.rdoCode));
 }
 
+function isDefaultZip(zip) {
+  return !zip || /^0+$/.test(String(zip));
+}
+
 async function ensureLocation({ munCode, mun, rdoCode, zipCode }) {
-  const existingLocation = await findLocation({ munCode, mun, zipCode });
+  const existingLocation = await findLocation({ munCode, mun });
   if (existingLocation && !isDefaultLocation(existingLocation)) {
     return existingLocation.munCode;
   }
 
-  const fallbackLocation = await findLocation({ mun, zipCode });
+  const fallbackLocation = await findLocation({ mun });
   if (fallbackLocation && !isDefaultLocation(fallbackLocation)) {
     return fallbackLocation.munCode;
   }
@@ -448,7 +451,7 @@ async function ensureLocation({ munCode, mun, rdoCode, zipCode }) {
          mun = COALESCE(excluded.mun, location.mun),
          rdo_code = COALESCE(excluded.rdo_code, location.rdo_code),
          zip_code = COALESCE(excluded.zip_code, location.zip_code)`,
-      [code, requiredText(mun, 'Unknown'), requiredText(rdoCode, '000'), requiredText(zipCode, '0000')],
+      [code, requiredText(mun, 'Unknown'), requiredText(rdoCode, '000'), valueOrNull(zipCode)],
     );
     return code;
   }
@@ -478,11 +481,11 @@ function mapLocation(row) {
     munCode: row.mun_code,
     mun: row.mun,
     rdoCode: row.rdo_code,
-    zipCode: row.zip_code,
+    zipCode: row.zip_code ?? '',
   };
 }
 
-async function findLocation({ munCode, mun, zipCode }) {
+async function findLocation({ munCode, mun }) {
   const requestedMunCode = String(munCode ?? '').trim();
   if (requestedMunCode && requestedMunCode !== '000000000' && requestedMunCode !== '0') {
     const byCode = await get('SELECT * FROM location WHERE mun_code = ?', [requestedMunCode]);
@@ -503,12 +506,8 @@ async function findLocation({ munCode, mun, zipCode }) {
       (location) => normalizeLocationText(location.mun) === city
         && String(location.mun ?? '').trim().toLowerCase() === String(mun ?? '').trim().toLowerCase(),
     );
-    const zipMatches = realSameCity.filter((location) => !zipCode || String(location.zipCode ?? '').trim() === String(zipCode).trim());
 
-    return zipMatches[0]
-      ?? exactNameMatches[0]
-      ?? realSameCity[0]
-      ?? null;
+    return exactNameMatches[0] ?? realSameCity[0] ?? null;
   }
 
   if (!requestedMunCode) return null;
@@ -630,6 +629,36 @@ function mapForm(row, taxpayer) {
   };
 }
 
+async function migrateZipCodeColumns() {
+  const locationCols = await all("PRAGMA table_info(location)");
+  const hasLocationZip = locationCols?.some((c) => c.name === 'zip_code');
+  if (!hasLocationZip) {
+    try { await run("ALTER TABLE location ADD COLUMN zip_code TEXT"); } catch {}
+  }
+
+  const taxpayerCols = await all("PRAGMA table_info(taxpayer)");
+  const hasTaxpayerZip = taxpayerCols?.some((c) => c.name === 'zip_code');
+  if (!hasTaxpayerZip) {
+    try { await run("ALTER TABLE taxpayer ADD COLUMN zip_code TEXT NOT NULL DEFAULT '0000'"); } catch {}
+  }
+
+  const employerCols = await all("PRAGMA table_info(employer)");
+  const hasEmployerZip = employerCols?.some((c) => c.name === 'zip_code');
+  if (!hasEmployerZip) {
+    try { await run("ALTER TABLE employer ADD COLUMN zip_code TEXT"); } catch {}
+  }
+
+  await run(`UPDATE taxpayer SET zip_code = COALESCE(
+    (SELECT zip_code FROM location WHERE location.mun_code = taxpayer.mun_code),
+    zip_code, '0000'
+  ) WHERE zip_code IS NULL OR zip_code = '' OR zip_code = '0000'`);
+
+  await run(`UPDATE employer SET zip_code = COALESCE(
+    (SELECT zip_code FROM location WHERE location.mun_code = employer.emp_mun_code),
+    zip_code
+  ) WHERE zip_code IS NULL OR zip_code = ''`);
+}
+
 export async function initializeDatabase() {
   await run('PRAGMA foreign_keys = ON');
 
@@ -637,7 +666,7 @@ export async function initializeDatabase() {
     mun_code TEXT PRIMARY KEY,
     mun TEXT NOT NULL,
     rdo_code TEXT NOT NULL,
-    zip_code TEXT NOT NULL
+    zip_code TEXT
   )`);
 
   await dropStaleTaxpayerMigrationTable();
@@ -661,6 +690,7 @@ export async function initializeDatabase() {
     full_address TEXT NOT NULL,
     foreign_address TEXT NULL,
     mun_code TEXT NOT NULL,
+    zip_code TEXT NOT NULL,
     landline TEXT NULL,
     fax TEXT NULL,
     mobile TEXT NULL,
@@ -692,6 +722,7 @@ export async function initializeDatabase() {
     emp_tin TEXT PRIMARY KEY,
     emp_fullname TEXT NOT NULL,
     emp_full_address TEXT NULL,
+    zip_code TEXT NULL,
     emp_landline TEXT NULL,
     emp_mun_code TEXT NULL,
     registering_office_type TEXT NULL,
@@ -743,6 +774,7 @@ export async function initializeDatabase() {
     FOREIGN KEY (taxpayer_id) REFERENCES taxpayer(applicant_id)
   )`);
 
+  await migrateZipCodeColumns();
   await repairLegacyTaxpayerForeignKeys();
 
   return dbPath;
@@ -751,7 +783,7 @@ export async function initializeDatabase() {
 async function loadTaxpayerRelations(id) {
   const spouse = mapSpouse(await get('SELECT * FROM spouse WHERE applicant_id = ?', [id]));
   const employers = (await all(`
-    SELECT er.applicant_id, er.emp_type, er.hire_date, e.*, l.zip_code
+    SELECT er.applicant_id, er.emp_type, er.hire_date, e.*
     FROM employee_relationship er
     JOIN employer e ON e.emp_tin = er.emp_tin
     LEFT JOIN location l ON l.mun_code = e.emp_mun_code
@@ -772,7 +804,6 @@ async function repairTaxpayerLocation(row) {
 
   const location = await findLocation({
     mun: cityFromAddress(row.full_address),
-    zipCode: /^0+$/.test(String(row.zip_code ?? '')) ? undefined : row.zip_code,
   });
   if (!location) return row;
 
@@ -782,13 +813,12 @@ async function repairTaxpayerLocation(row) {
     mun_code: location.munCode,
     mun: location.mun,
     rdo_code: location.rdoCode,
-    zip_code: location.zipCode,
   };
 }
 
 export async function getTaxpayerById(id) {
   const row = await repairTaxpayerLocation(await get(`
-    SELECT t.*, l.mun, l.rdo_code, l.zip_code
+    SELECT t.*, l.mun, l.rdo_code
     FROM taxpayer t
     LEFT JOIN location l ON l.mun_code = t.mun_code
     WHERE t.applicant_id = ?
@@ -806,7 +836,7 @@ export async function getTaxpayerById(id) {
 
 export async function listTaxpayers() {
   const rows = await all(`
-    SELECT t.*, l.mun, l.rdo_code, l.zip_code
+    SELECT t.*, l.mun, l.rdo_code
     FROM taxpayer t
     LEFT JOIN location l ON l.mun_code = t.mun_code
     ORDER BY t.applicant_id DESC
@@ -828,7 +858,6 @@ export async function lookupLocation(filters = {}) {
   return findLocation({
     munCode: filters.munCode,
     mun: filters.mun,
-    zipCode: filters.zipCode,
   });
 }
 
@@ -839,14 +868,15 @@ export async function createTaxpayer(data) {
     rdoCode: data.rdoCode,
     zipCode: data.zipCode,
   }, 'Taxpayer address');
+  const zipCode = isDefaultZip(data.zipCode) ? '0000' : String(data.zipCode).trim();
   const result = await run(`
     INSERT INTO taxpayer (
       taxpayer_tin, bir_reg_date, pcn, taxpayer_type, taxpayer_fullname, gender, civil_status,
       date_of_birth, place_of_birth, citizenship, other_citizenship, mother_fullname,
-      father_fullname, full_address, foreign_address, mun_code, landline, fax, mobile,
+      father_fullname, full_address, foreign_address, mun_code, zip_code, landline, fax, mobile,
       email, tax_type, form_type, atc, id_type, id_number, id_effectivity, id_expiry,
       id_issuer, id_place
-    ) VALUES (?, COALESCE(?, CURRENT_DATE), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, COALESCE(?, CURRENT_DATE), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [
     valueOrNull(data.tin),
     valueOrNull(data.birRegDate),
@@ -864,6 +894,7 @@ export async function createTaxpayer(data) {
     requiredText(fullAddressFromPayload(data)),
     valueOrNull(data.foreignAddress),
     munCode,
+    zipCode,
     valueOrNull(data.landline),
     valueOrNull(data.fax),
     valueOrNull(data.mobile),
@@ -891,12 +922,13 @@ export async function updateTaxpayer(id, data) {
     rdoCode: next.rdoCode,
     zipCode: next.zipCode,
   }, 'Taxpayer address');
+  const zipCode = isDefaultZip(next.zipCode) ? '0000' : String(next.zipCode).trim();
   await run(`
     UPDATE taxpayer SET
       taxpayer_tin = ?, pcn = ?, taxpayer_type = ?, taxpayer_fullname = ?, gender = ?,
       civil_status = ?, date_of_birth = ?, place_of_birth = ?, citizenship = ?,
       other_citizenship = ?, mother_fullname = ?, father_fullname = ?, full_address = ?,
-      foreign_address = ?, mun_code = ?, landline = ?, fax = ?, mobile = ?, email = ?,
+      foreign_address = ?, mun_code = ?, zip_code = ?, landline = ?, fax = ?, mobile = ?, email = ?,
       tax_type = ?, form_type = ?, atc = ?, id_type = ?, id_number = ?,
       id_effectivity = ?, id_expiry = ?, id_issuer = ?, id_place = ?
     WHERE applicant_id = ?
@@ -916,6 +948,7 @@ export async function updateTaxpayer(id, data) {
     requiredText(fullAddressFromPayload(next)),
     valueOrNull(next.foreignAddress),
     munCode,
+    zipCode,
     valueOrNull(next.landline),
     valueOrNull(next.fax),
     valueOrNull(next.mobile),
@@ -940,12 +973,14 @@ export async function createEmployer(taxpayerId, data) {
     rdoCode: data.rdoCode,
     zipCode: data.employerZipCode,
   }) : null;
+  const zipCode = isDefaultZip(data.employerZipCode) ? null : String(data.employerZipCode).trim();
   await run(`
-    INSERT INTO employer (emp_tin, emp_fullname, emp_full_address, emp_landline, emp_mun_code, registering_office_type)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO employer (emp_tin, emp_fullname, emp_full_address, zip_code, emp_landline, emp_mun_code, registering_office_type)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(emp_tin) DO UPDATE SET
       emp_fullname = excluded.emp_fullname,
       emp_full_address = excluded.emp_full_address,
+      zip_code = excluded.zip_code,
       emp_landline = excluded.emp_landline,
       emp_mun_code = excluded.emp_mun_code,
       registering_office_type = excluded.registering_office_type
@@ -953,6 +988,7 @@ export async function createEmployer(taxpayerId, data) {
     requiredText(data.employerTin),
     requiredText(data.employerFullName),
     valueOrNull(data.employerFullAddress),
+    zipCode,
     valueOrNull(data.empLandline),
     munCode,
     valueOrNull(data.registeringOfficeType),

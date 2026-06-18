@@ -65,7 +65,6 @@ app.get('/api/locations/lookup', asyncRoute(async (req, res) => {
   const location = await lookupLocation({
     munCode: req.query.munCode,
     mun: req.query.mun,
-    zipCode: req.query.zipCode,
   });
 
   if (!location) return notFound(res, 'Location not found');

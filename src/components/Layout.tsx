@@ -13,7 +13,7 @@ export default function Layout({ children, section }: LayoutProps) {
   return (
     <div className="flex min-h-dvh overflow-hidden">
       <Navbar />
-      <div className="flex-1 flex flex-col overflow-auto bg-canvas" style={{ scrollbarGutter: "stable" }}>
+      <div className="flex-1 flex flex-col overflow-auto bg-canvas">
         <Topbar />
         <main className="pt-20 px-6">{children}</main>
       </div>
